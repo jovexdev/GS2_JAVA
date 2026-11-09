@@ -1,0 +1,13 @@
+# Copie para aegis.local.properties na mesma pasta do pom.xml.
+# Preencha os valores depois de =, sem aspas.
+aegis.db.usuario=
+aegis.db.senha=
+aegis.openai.api-key=
+
+# Opcionais. Remova # somente nas linhas que quiser configurar.
+# aegis.db.url=jdbc:oracle:thin:@oracle.fiap.com.br:1521:orcl
+# aegis.openai.model=gpt-5.6-terra
+# aegis.gestor.email=gestor@aegis.test
+# aegis.gestor.senha=
+# aegis.agente.email=agente@aegis.test
+# aegis.agente.senha=

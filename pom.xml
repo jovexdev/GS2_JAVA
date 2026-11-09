@@ -53,6 +53,9 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <mainClass>br.com.fiap.AegisApplication</mainClass>
+                </configuration>
             </plugin>
         </plugins>
     </build>
