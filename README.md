@@ -22,6 +22,22 @@ Para substituir um esquema AEGIS antigo, exclua primeiro as tabelas AEGIS desse 
 | `AEGIS_GESTOR` | Nome, identificação funcional fictícia e setor |
 | `AEGIS_AGENTE` | Nome, identificação funcional fictícia e equipe |
 
+## Carregar dados fictícios
+
+Depois de instalar o esquema, execute [`database/DadosFicticios.sql`](database/DadosFicticios.sql) com **F5** para popular as tabelas. A carga cria duas equipes, cinco contas, quatro ocorrências e três vistorias com histórico. As vistorias ficam pendente, agendada e concluída, respectivamente.
+
+As cinco contas usam a senha de demonstração **`AegisDemo2026`**.
+
+| Perfil | E-mail |
+| --- | --- |
+| Cidadão | `cidadao@demo.aegis.test` |
+| Empresa | `empresa@demo.aegis.test` |
+| Gestor | `gestor@demo.aegis.test` |
+| Agente da equipe Norte | `agente.norte@demo.aegis.test` |
+| Agente da equipe Sul | `agente.sul@demo.aegis.test` |
+
+A empresa vê as três vistorias. O agente da equipe Norte vê a agendada e o da equipe Sul vê a concluída. O cidadão pode consultar a própria ocorrência. Execute a carga uma vez por base. Se um identificador já existir, o script desfaz a carga e apresenta o conflito.
+
 ## Preencher as credenciais uma vez
 
 Abra [`ConexaoFactory.java`](src/main/java/br/com/fiap/conexoes/ConexaoFactory.java) e preencha `USUARIO` e `SENHA` entre as aspas, no início da classe.
