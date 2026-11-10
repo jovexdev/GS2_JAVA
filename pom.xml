@@ -56,6 +56,14 @@
                 <configuration>
                     <mainClass>br.com.fiap.AegisApplication</mainClass>
                 </configuration>
+                <executions>
+                    <execution>
+                        <id>default-cli</id>
+                        <configuration>
+                            <mainClass>br.com.fiap.main.AegisTerminal</mainClass>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

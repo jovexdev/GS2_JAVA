@@ -9,23 +9,27 @@ import br.com.fiap.entities.Perfil;
 import br.com.fiap.entities.Usuario;
 import br.com.fiap.excecoes.ApiException;
 
-import javax.swing.JOptionPane;
-import javax.swing.JPasswordField;
+import java.io.Console;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.time.DateTimeException;
 import java.util.Arrays;
+import java.util.Scanner;
 import java.util.concurrent.CancellationException;
 
 final class Entrada {
+    private static final Console CONSOLE = System.console();
+    private static final Scanner LEITOR = CONSOLE == null ? new Scanner(System.in) : null;
+    private static ConexaoFactory conexaoDeTeste;
+
     private Entrada() {
     }
 
-    static void executar(Teste teste) {
+    static boolean executar(Teste teste) {
         try {
             teste.rodar();
         } catch (CancellationException e) {
-            System.out.println("Teste cancelado.");
+            return false;
         } catch (SQLException e) {
             System.err.println("Falha Oracle (código " + e.getErrorCode() + "): " + e.getMessage());
             if (e.getErrorCode() == 942) {
@@ -36,30 +40,42 @@ final class Entrada {
         } catch (ApiException | IllegalArgumentException | DateTimeException | IOException e) {
             System.err.println(e.getMessage());
         }
+        return true;
     }
 
     static String texto(String pergunta) {
-        String resposta = JOptionPane.showInputDialog(pergunta);
-        if (resposta == null) {
-            throw new CancellationException();
-        }
-        return resposta.strip();
+        return linha(pergunta).strip();
     }
 
     static String senha(String pergunta) {
-        JPasswordField campo = new JPasswordField(20);
-        int opcao = JOptionPane.showConfirmDialog(null, new Object[]{pergunta, campo},
-                "AEGIS", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
-        if (opcao != JOptionPane.OK_OPTION) {
+        if (CONSOLE == null) {
+            return linha(pergunta + " (entrada visível neste console)");
+        }
+        char[] valor = CONSOLE.readPassword("%s: ", pergunta);
+        if (valor == null) {
             throw new CancellationException();
         }
-        char[] valor = campo.getPassword();
         try {
             return new String(valor);
         } finally {
             Arrays.fill(valor, '\0');
-            campo.setText("");
         }
+    }
+
+    private static String linha(String pergunta) {
+        if (CONSOLE != null) {
+            String valor = CONSOLE.readLine("%s: ", pergunta);
+            if (valor == null) {
+                throw new CancellationException();
+            }
+            return valor;
+        }
+        System.out.print(pergunta + ": ");
+        System.out.flush();
+        if (!LEITOR.hasNextLine()) {
+            throw new CancellationException();
+        }
+        return LEITOR.nextLine();
     }
 
     static long id(String pergunta) {
@@ -71,34 +87,50 @@ final class Entrada {
     }
 
     static boolean confirmar(String pergunta) {
-        int opcao = JOptionPane.showConfirmDialog(null, pergunta, "AEGIS", JOptionPane.YES_NO_CANCEL_OPTION);
-        if (opcao != JOptionPane.YES_OPTION && opcao != JOptionPane.NO_OPTION) {
-            throw new CancellationException();
-        }
-        return opcao == JOptionPane.YES_OPTION;
+        return switch (texto(pergunta + " [s/n]").toLowerCase(java.util.Locale.ROOT)) {
+            case "s", "sim" -> true;
+            case "n", "nao", "não" -> false;
+            default -> throw new IllegalArgumentException("Responda com s ou n.");
+        };
     }
 
     static String escolher(String pergunta, String... opcoes) {
-        var escolha = JOptionPane.showInputDialog(null, pergunta, "AEGIS", JOptionPane.QUESTION_MESSAGE,
-                null, opcoes, opcoes[0]);
-        if (escolha == null) {
-            throw new CancellationException();
+        System.out.println(pergunta);
+        for (int i = 0; i < opcoes.length; i++) {
+            System.out.println((i + 1) + " - " + opcoes[i]);
         }
-        return escolha.toString();
+        long opcao = id("Opção");
+        if (opcao > opcoes.length) {
+            throw new IllegalArgumentException("Escolha uma opção da lista.");
+        }
+        return opcoes[(int) opcao - 1];
+    }
+
+    static ConexaoFactory conexoes() {
+        if (conexaoDeTeste == null) {
+            var banco = new CredenciaisTerminal().banco();
+            conexaoDeTeste = new ConexaoFactory(banco.url(), banco.usuario(), banco.senha(),
+                    "oracle.jdbc.driver.OracleDriver");
+        }
+        return conexaoDeTeste;
     }
 
     static UsuarioBO usuarios() {
-        return new UsuarioBO(new UsuarioDAO(new ConexaoFactory()));
+        return new UsuarioBO(new UsuarioDAO(conexoes()));
     }
 
     static OcorrenciaBO ocorrencias() {
-        return new OcorrenciaBO(new OcorrenciaDAO(new ConexaoFactory()));
+        return new OcorrenciaBO(new OcorrenciaDAO(conexoes()));
+    }
+
+    static Usuario login(UsuarioBO usuarios) throws SQLException {
+        String email = texto("E-mail cadastrado no AEGIS");
+        String senha = senha("Senha da sua conta no AEGIS");
+        return usuarios.autenticar(new UsuarioBO.Login(email, senha));
     }
 
     static Usuario login() throws SQLException {
-        String email = texto("E-mail cadastrado no AEGIS");
-        String senha = senha("Senha da sua conta no AEGIS");
-        return usuarios().autenticar(new UsuarioBO.Login(email, senha));
+        return login(usuarios());
     }
 
     static OcorrenciaBO.Relato relato(Perfil perfil) {

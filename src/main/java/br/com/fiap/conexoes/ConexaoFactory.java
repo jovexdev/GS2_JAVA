@@ -45,7 +45,7 @@ public class ConexaoFactory {
 
     public Connection conexao() throws ClassNotFoundException, SQLException {
         if (USUARIO.equals(usuario) || SENHA.equals(senha)) {
-            throw ApiException.indisponivel("Preencha o usuário e a senha Oracle em aegis.local.properties.");
+            throw ApiException.indisponivel("Informe o usuário e a senha Oracle ao iniciar AegisTerminal ou em aegis.local.properties.");
         }
 
         Class.forName(driver);

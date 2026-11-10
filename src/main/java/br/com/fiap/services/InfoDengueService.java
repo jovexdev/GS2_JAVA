@@ -1,13 +1,14 @@
 package br.com.fiap.services;
 
+import br.com.fiap.api.SemanaInfoDengue;
 import br.com.fiap.entities.IndicadorEpidemiologico;
 import br.com.fiap.excecoes.ApiException;
 import com.google.gson.Gson;
 import com.google.gson.JsonParseException;
-import com.google.gson.annotations.SerializedName;
+import org.apache.http.HttpEntity;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.HttpClients;
+import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.util.EntityUtils;
 import org.springframework.stereotype.Service;
 
@@ -33,12 +34,13 @@ public class InfoDengueService {
                 + "&ey_start=" + ano + "&ey_end=" + ano;
         HttpGet requisicao = new HttpGet(URL + parametros);
         requisicao.setHeader("Accept", "application/json");
-        try (var cliente = HttpClients.custom().disableRedirectHandling().setDefaultRequestConfig(LIMITES).build();
+        try (var cliente = HttpClientBuilder.create().disableRedirectHandling().setDefaultRequestConfig(LIMITES).build();
              var resposta = cliente.execute(requisicao)) {
-            if (resposta.getStatusLine().getStatusCode() != 200 || resposta.getEntity() == null) {
+            HttpEntity entidade = resposta.getEntity();
+            if (resposta.getStatusLine().getStatusCode() != 200 || entidade == null) {
                 throw ApiException.falhaExterna("O InfoDengue não retornou os indicadores solicitados.");
             }
-            String json = EntityUtils.toString(resposta.getEntity(), StandardCharsets.UTF_8);
+            String json = EntityUtils.toString(entidade, StandardCharsets.UTF_8);
             return lerIndicadores(json);
         } catch (IOException | JsonParseException | DateTimeException | NumberFormatException e) {
             throw ApiException.falhaExterna("Falha ao ler a resposta do InfoDengue.");
@@ -46,7 +48,7 @@ public class InfoDengueService {
     }
 
     List<IndicadorEpidemiologico> lerIndicadores(String json) {
-        Semana[] semanas = gson.fromJson(json, Semana[].class);
+        SemanaInfoDengue[] semanas = gson.fromJson(json, SemanaInfoDengue[].class);
         if (semanas == null) {
             throw new JsonParseException("Resposta sem uma lista de semanas.");
         }
@@ -65,15 +67,5 @@ public class InfoDengueService {
             return Instant.ofEpochMilli(Long.parseLong(valor)).atOffset(ZoneOffset.UTC).toLocalDate();
         }
         return LocalDate.parse(valor.length() > 10 ? valor.substring(0, 10) : valor);
-    }
-
-    private record Semana(
-            @SerializedName(value = "SE", alternate = "EW") Integer semana,
-            @SerializedName(value = "data_iniSE", alternate = "data_ini_SE") String inicio,
-            @SerializedName(value = "casos", alternate = "cases") Integer casos,
-            @SerializedName("casos_est") Double estimativa,
-            @SerializedName("p_inc100k") Double incidencia,
-            @SerializedName(value = "nivel", alternate = "level") Integer nivel,
-            @SerializedName("Localidade_id") Integer localidade) {
     }
 }

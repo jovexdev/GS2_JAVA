@@ -26,6 +26,7 @@ public final class ConfiguracaoLocal {
     }
 
     public String valor(String chave, String variavel) {
-        return propriedades.getProperty(chave, System.getenv().getOrDefault(variavel, ""));
+        String valor = propriedades.getProperty(chave, "");
+        return valor.isBlank() ? System.getenv().getOrDefault(variavel, "") : valor;
     }
 }
