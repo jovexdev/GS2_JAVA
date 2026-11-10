@@ -1,7 +1,6 @@
 package br.com.fiap.services;
 
 import br.com.fiap.api.RespostaOpenAi;
-import br.com.fiap.config.ConfiguracaoLocal;
 import br.com.fiap.excecoes.ApiException;
 import com.google.gson.Gson;
 import com.google.gson.JsonParseException;
@@ -23,6 +22,8 @@ import java.util.stream.Collectors;
 
 @Service
 public class OpenAiService {
+    // Preencha esta constante na sua cópia local do projeto.
+    private static final String OPENAI_API_KEY = "";
     private static final String MODELO_PADRAO = "gpt-5.6-terra";
     private static final String URL = "https://api.openai.com/v1/responses";
     private static final RequestConfig LIMITES = RequestConfig.custom()
@@ -34,9 +35,8 @@ public class OpenAiService {
 
     public OpenAiService(@Value("${aegis.openai.api-key}") String chave,
                          @Value("${aegis.openai.model}") String modelo) {
-        String chaveJava = ConfiguracaoLocal.segredoJava("OPENAI_API_KEY");
-        this.chave = chaveJava.isBlank() ? chave : chaveJava;
-        this.origemChave = !chaveJava.isBlank() ? "CredenciaisLocais.java"
+        this.chave = OPENAI_API_KEY.isBlank() ? chave : OPENAI_API_KEY;
+        this.origemChave = !OPENAI_API_KEY.isBlank() ? "OpenAiService.java"
                 : chave.isBlank() ? "chave não configurada" : "arquivo de configuração ou variável OPENAI_API_KEY";
         this.modelo = modelo.isBlank() ? MODELO_PADRAO : modelo;
     }
@@ -47,7 +47,7 @@ public class OpenAiService {
 
     public String responder(String instrucoes, String entrada) {
         if (chave.isBlank()) {
-            throw ApiException.indisponivel("Configure OPENAI_API_KEY em CredenciaisLocais.java.");
+            throw ApiException.indisponivel("Preencha OPENAI_API_KEY em OpenAiService.java.");
         }
         var requisicao = new HttpPost(URL);
         requisicao.setHeader("Authorization", "Bearer " + chave);

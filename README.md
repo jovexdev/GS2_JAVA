@@ -23,24 +23,22 @@ git pull --ff-only
 
 ## Preencher as credenciais uma vez
 
-Copie `CredenciaisLocais.java.example` para `CredenciaisLocais.java` na mesma pasta. O comando abaixo cria o arquivo se ele ainda estiver ausente.
-
-```powershell
-$arquivo = 'src/main/java/br/com/fiap/config/CredenciaisLocais.java'
-if (!(Test-Path $arquivo)) { Copy-Item ($arquivo + '.example') $arquivo }
-```
-
-Abra **`CredenciaisLocais.java`** no IntelliJ e preencha os valores entre aspas.
+Abra [`ConexaoFactory.java`](src/main/java/br/com/fiap/conexoes/ConexaoFactory.java) e preencha `USUARIO` e `SENHA` entre as aspas, no início da classe.
 
 ```java
-public static final String ORACLE_USUARIO = "seu_usuario_oracle";
-public static final String ORACLE_SENHA = "sua_senha_oracle";
-public static final String OPENAI_API_KEY = "sua_chave_openai";
+private static final String USUARIO = "seu_usuario_oracle";
+private static final String SENHA = "sua_senha_oracle";
 ```
 
-O arquivo Java com valores reais está no `.gitignore`. O AEGIS e os testes reutilizam essas credenciais. As configurações anteriores em `aegis.local.properties` e nas variáveis de ambiente continuam disponíveis. Na abertura do terminal, a linha `OpenAI` indica de onde veio a configuração. A consulta ao InfoDengue usa dados públicos e funciona separadamente da LIA.
+A conexão usa `DriverManager.getConnection(url, usuario, senha)`. A URL padrão é `jdbc:oracle:thin:@oracle.fiap.com.br:1521:orcl`.
 
-A conexão usa `DriverManager.getConnection(url, usuario, senha)` em [`ConexaoFactory`](src/main/java/br/com/fiap/conexoes/ConexaoFactory.java). A URL padrão é `jdbc:oracle:thin:@oracle.fiap.com.br:1521:orcl`.
+Abra [`OpenAiService.java`](src/main/java/br/com/fiap/services/OpenAiService.java) e preencha `OPENAI_API_KEY` no início da classe.
+
+```java
+private static final String OPENAI_API_KEY = "sua_chave_openai";
+```
+
+Preencha os valores apenas na sua cópia local e mantenha esses arquivos fora dos commits enquanto contiverem credenciais. Os campos preenchidos no código têm prioridade. Com os campos vazios, a aplicação pode usar `aegis.local.properties` ou as variáveis de ambiente. Na abertura do terminal, a linha `OpenAI` indica de onde veio a chave.
 
 ## Rodar no IntelliJ
 
@@ -63,7 +61,7 @@ Use dados fictícios nos cadastros. O primeiro gestor pode ser criado pelo termi
 
 ## Testar partes separadamente
 
-As classes ficam no [pacote `main`](src/main/java/br/com/fiap/main). `TesteConexao` verifica o Oracle e a equipe piloto. `TesteCadastrarUsuario` abre a escolha de perfil. Os testes de ocorrências e vistorias pedem o login da conta AEGIS para aplicar as permissões. `TesteLia` usa a chave definida no arquivo Java local.
+As classes ficam no [pacote `main`](src/main/java/br/com/fiap/main). `TesteConexao` verifica o Oracle e a equipe piloto. `TesteCadastrarUsuario` abre a escolha de perfil. Os testes de ocorrências e vistorias pedem o login da conta AEGIS para aplicar as permissões. `TesteLia` usa a chave definida em `OpenAiService.java`.
 
 Para rodar apenas a API REST, execute `br.com.fiap.AegisApplication`. No modo terminal, use o endereço impresso para consultar `/api/saude` e `/api/saude/oracle`. Ao iniciar `AegisApplication` diretamente, a porta padrão é 8080.
 

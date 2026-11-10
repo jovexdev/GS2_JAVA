@@ -13,6 +13,7 @@ import java.sql.SQLException;
 @Component
 public class ConexaoFactory {
     private static final String URL = "jdbc:oracle:thin:@oracle.fiap.com.br:1521:orcl";
+    // Preencha estas duas constantes na sua cópia local do projeto.
     private static final String USUARIO = "";
     private static final String SENHA = "";
     private static final String DRIVER = "oracle.jdbc.driver.OracleDriver";
@@ -38,24 +39,16 @@ public class ConexaoFactory {
                           @Value("${aegis.db.senha}") String senha,
                           @Value("${aegis.db.driver}") String driver) {
         this.url = url.isBlank() ? URL : url;
-        String usuarioJava = DRIVER.equals(driver) ? ConfiguracaoLocal.segredoJava("ORACLE_USUARIO") : "";
-        String senhaJava = DRIVER.equals(driver) ? ConfiguracaoLocal.segredoJava("ORACLE_SENHA") : "";
-        this.usuario = valorConfigurado(usuarioJava, usuario, USUARIO);
-        this.senha = valorConfigurado(senhaJava, senha, SENHA);
+        boolean oracle = driver.startsWith("oracle.jdbc.");
+        this.usuario = oracle && !USUARIO.isBlank() ? USUARIO : usuario;
+        this.senha = oracle && !SENHA.isBlank() ? SENHA : senha;
         this.driver = driver;
-    }
-
-    private String valorConfigurado(String codigoLocal, String configuracao, String padrao) {
-        if (!codigoLocal.isBlank()) {
-            return codigoLocal;
-        }
-        return configuracao.isBlank() ? padrao : configuracao;
     }
 
     public Connection conexao() throws ClassNotFoundException, SQLException {
         if (usuario.isBlank() || senha.isBlank()
                 || "Seu usuario Oracle".equals(usuario) || "Sua senha Oracle".equals(senha)) {
-            throw ApiException.indisponivel("Configure ORACLE_USUARIO e ORACLE_SENHA em CredenciaisLocais.java.");
+            throw ApiException.indisponivel("Preencha USUARIO e SENHA em ConexaoFactory.java.");
         }
 
         Class.forName(driver);
