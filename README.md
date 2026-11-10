@@ -2,49 +2,41 @@
 
 Backend Java da Global Solution 2026.2. O `AegisTerminal` inicia o Spring Boot e abre o acesso aos perfis do sistema. O menu e as rotas REST compartilham as mesmas regras e o banco Oracle da FIAP.
 
-## Atualizar o Oracle
+## Instalar o Oracle com um único script
 
-Pare o AEGIS antes de alterar o esquema. Na pasta `GS2_JAVA`, baixe a versão atualizada.
+Pare o AEGIS e baixe a versão atualizada na pasta `GS2_JAVA`.
 
 ```powershell
 git pull --ff-only
 ```
 
-Para uma base nova, abra [`database/01_schema.sql`](database/01_schema.sql) no SQL Developer e execute com **F5** no seu usuário Oracle. Ele cria as tabelas, as chaves e a equipe piloto.
+Abra [`database/01_schema.sql`](database/01_schema.sql) no SQL Developer, no seu usuário Oracle, e execute o arquivo inteiro com **F5 uma vez**, em uma base sem tabelas AEGIS. Ele contém a estrutura completa, com todas as tabelas, chaves primárias e estrangeiras, índices e a equipe piloto. A vistoria já inclui o agente designado, inspeção, recomendações e os estados Pendente, Agendada, Em andamento, Concluída e Encerrada.
 
-Se as tabelas já existem, execute somente o bloco da seção **Atualizar a tabela de vistorias existente**. Ele preserva os dados e habilita a designação individual e as etapas de campo.
+Se você tem uma instalação antiga e quer substituí-la, use a opção **APAGAR_TABELAS** do `Manutencao.sql` e depois execute o `01_schema.sql` inteiro uma vez. Essa substituição exclui os dados antigos. Não há outro bloco SQL para copiar do README.
 
 | Tabela | O que guarda |
 | --- | --- |
+| `AEGIS_EQUIPE` | Equipes responsáveis pelos atendimentos |
 | `AEGIS_USUARIO` | Identificador, e-mail, hash da senha e perfil da conta |
 | `AEGIS_CIDADAO` | Nome, CPF, endereço, ocupação e telefone |
 | `AEGIS_EMPRESA` | Razão social, CNPJ, nome fantasia, atividade, endereço, responsável, telefone e características das instalações |
 | `AEGIS_GESTOR` | Nome, identificação funcional fictícia e setor |
 | `AEGIS_AGENTE` | Nome, identificação funcional fictícia e equipe |
+| `AEGIS_OCORRENCIA` | Relatos ambientais, localização e classificação preliminar |
+| `AEGIS_VISTORIA` | Agente e equipe designados, prioridade, agendamento, inspeção, recomendações e resultado |
+| `AEGIS_HISTORICO` | Decisões e etapas de cada atendimento |
 
-## Atualizar a tabela de vistorias existente
+## Manutenção opcional
 
-Com o AEGIS parado, execute este bloco com **F5** no SQL Developer, no mesmo usuário Oracle das tabelas AEGIS. Use-o uma vez se a sua tabela de vistorias foi criada pela versão anterior. Para uma base nova, o `01_schema.sql` já inclui esses campos.
+Abra [`database/Manutencao.sql`](database/Manutencao.sql), altere o valor de `v_acao` no início do bloco e execute com **F5**, com a aplicação parada. O arquivo executa somente a opção escolhida.
 
-```sql
-ALTER TABLE AEGIS_VISTORIA ADD (
-    agente_id NUMBER(19),
-    inspecao VARCHAR2(1000 CHAR),
-    recomendacoes VARCHAR2(1000 CHAR)
-);
+| Valor de `v_acao` | Resultado |
+| --- | --- |
+| `NENHUMA` | Padrão. Mostra as opções sem alterar o banco. |
+| `APAGAR_DADOS` | Apaga contas, perfis, ocorrências, vistorias, histórico e equipes. Mantém tabelas, chaves e índices; recria somente a equipe piloto de ID `1`. |
+| `APAGAR_TABELAS` | Exclui as nove tabelas AEGIS e seus dados, respeitando a ordem das chaves estrangeiras. Depois, instale novamente com `01_schema.sql`. |
 
-ALTER TABLE AEGIS_VISTORIA ADD CONSTRAINT AEGIS_VISTORIA_AGENTE_FK
-    FOREIGN KEY (agente_id) REFERENCES AEGIS_AGENTE(usuario_id);
-
-ALTER TABLE AEGIS_VISTORIA MODIFY (status VARCHAR2(14 CHAR));
-
-ALTER TABLE AEGIS_VISTORIA DROP CONSTRAINT AEGIS_VISTORIA_STATUS_CK;
-
-ALTER TABLE AEGIS_VISTORIA ADD CONSTRAINT AEGIS_VISTORIA_STATUS_CK
-    CHECK (status IN ('PENDENTE', 'AGENDADA', 'EM_ANDAMENTO', 'CONCLUIDA', 'ENCERRADA'));
-```
-
-As vistorias anteriores mantêm o vínculo com a equipe. Quando um agente da equipe inicia um atendimento antigo sem agente individual, a vistoria passa a ser vinculada a ele.
+A limpeza dos dados não reinicia os IDs e não atualiza a estrutura das tabelas. Após essa limpeza, a aplicação pode receber novos cadastros ou a carga opcional `DadosFicticios.sql`. A exclusão de tabelas não pode ser desfeita com `ROLLBACK`.
 
 ## Carregar dados fictícios
 

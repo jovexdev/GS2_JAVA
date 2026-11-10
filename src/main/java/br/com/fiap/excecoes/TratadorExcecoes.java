@@ -31,7 +31,7 @@ public class TratadorExcecoes extends ResponseEntityExceptionHandler {
         LOG.error("Falha no banco. Código JDBC: {}. SQLState: {}.", codigo, e.getSQLState());
         if (codigo == 904) {
             return ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE,
-                    "Confira a atualização da tabela AEGIS_VISTORIA indicada no README.");
+                    "Confira se a estrutura Oracle corresponde ao arquivo database/01_schema.sql.");
         }
         if (codigo == 942) {
             return ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE,

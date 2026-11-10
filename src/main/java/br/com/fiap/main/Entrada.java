@@ -45,7 +45,7 @@ final class Entrada {
             if (e.getErrorCode() == 942) {
                 System.err.println("Confira se executou database/01_schema.sql no mesmo usuário Oracle.");
             } else if (e.getErrorCode() == 904) {
-                System.err.println("Confira a atualização da tabela AEGIS_VISTORIA indicada no README.");
+                System.err.println("Confira se a estrutura Oracle corresponde ao arquivo database/01_schema.sql.");
             }
         } catch (ClassNotFoundException e) {
             System.err.println("Driver Oracle indisponível. Recarregue o projeto Maven no IntelliJ.");

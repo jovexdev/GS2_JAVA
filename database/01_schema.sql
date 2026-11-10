@@ -1,3 +1,12 @@
+-- AEGIS | INSTALAÇÃO COMPLETA DO BANCO ORACLE
+-- Execute este arquivo inteiro UMA VEZ com F5 no SQL Developer, em uma base sem tabelas AEGIS.
+-- Inclui todos os perfis, relacionamentos, índices e a Equipe piloto (ID 1).
+-- A vistoria já inclui agente_id, inspecao, recomendacoes e todos os status atuais.
+-- Não há comandos complementares de instalação no README.
+-- Para substituir uma instalação antiga, use antes a ação APAGAR_TABELAS do Manutencao.sql.
+-- Essa substituição apaga os dados antigos. APAGAR_DADOS mantém a estrutura existente.
+-- A carga DadosFicticios.sql é opcional e deve ser executada após a instalação.
+
 CREATE TABLE AEGIS_EQUIPE (
     id NUMBER(19) PRIMARY KEY,
     nome VARCHAR2(100 CHAR) NOT NULL
