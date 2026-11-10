@@ -1,6 +1,7 @@
 package br.com.fiap.bo;
 
 import br.com.fiap.dao.UsuarioDAO;
+import br.com.fiap.entities.DadosPerfil;
 import br.com.fiap.entities.Perfil;
 import br.com.fiap.entities.Usuario;
 import br.com.fiap.excecoes.ApiException;
@@ -32,12 +33,17 @@ public class UsuarioBO {
             throw ApiException.invalido("Informe um CNPJ com 14 caracteres e dois dígitos finais.");
         }
 
-        String responsavel = perfil == Perfil.EMPRESA
-                ? Validacao.obrigatorio(cadastro.responsavel(), "Responsável", 120) : null;
-        Usuario usuario = new Usuario(0, perfil, Validacao.obrigatorio(cadastro.nome(), "Nome", 120),
-                documento, email(cadastro.email()), Validacao.obrigatorio(cadastro.endereco(), "Endereço", 250),
-                responsavel, null);
-        return salvar(usuario, cadastro.senha());
+        String nome = Validacao.obrigatorio(cadastro.nome(), "Nome", 120);
+        String endereco = Validacao.obrigatorio(cadastro.endereco(), "Endereço", 250);
+        String telefone = opcional(cadastro.telefone(), "Telefone", 30);
+        DadosPerfil dados = perfil == Perfil.CIDADAO
+                ? new DadosPerfil.Cidadao(nome, documento, endereco,
+                        opcional(cadastro.ocupacao(), "Ocupação", 100), telefone)
+                : new DadosPerfil.Empresa(nome, opcional(cadastro.nomeFantasia(), "Nome fantasia", 120),
+                        documento, opcional(cadastro.atividadeEconomica(), "Atividade econômica", 150), endereco,
+                        Validacao.obrigatorio(cadastro.responsavel(), "Responsável", 120), telefone,
+                        opcional(cadastro.caracteristicasInstalacoes(), "Características das instalações", 500));
+        return dao.inserir(email(cadastro.email()), hash(cadastro.senha()), dados);
     }
 
     public Usuario autenticar(Login login) throws SQLException {
@@ -46,10 +52,46 @@ public class UsuarioBO {
         if (senha == null || senha.isBlank() || senha.length() > 128) {
             throw ApiException.naoAutenticado("E-mail ou senha inválidos.");
         }
-        UsuarioDAO.Conta conta = dao.buscarPorEmail(email)
-                .filter(c -> Senhas.confere(senha, c.senhaHash()))
-                .orElseThrow(() -> ApiException.naoAutenticado("E-mail ou senha inválidos."));
-        return conta.usuario();
+        return dao.buscarPorEmail(email).filter(c -> Senhas.confere(senha, c.senhaHash()))
+                .orElseThrow(() -> ApiException.naoAutenticado("E-mail ou senha inválidos.")).usuario();
+    }
+
+    public Usuario autenticar(Login login, Perfil perfilEscolhido) throws SQLException {
+        Usuario usuario = autenticar(login);
+        if (usuario.perfil() != perfilEscolhido) {
+            throw ApiException.proibido("A conta não pertence ao perfil selecionado.");
+        }
+        return usuario;
+    }
+
+    public boolean temGestor() throws SQLException {
+        return dao.temGestor();
+    }
+
+    public Usuario cadastrarOperador(CadastroOperador cadastro, Login autorizacao) throws SQLException {
+        Perfil perfil = cadastro.perfil();
+        if (perfil != Perfil.GESTOR && perfil != Perfil.AGENTE) {
+            throw ApiException.invalido("Escolha GESTOR ou AGENTE para o cadastro interno.");
+        }
+        if (autorizacao != null) {
+            autenticar(autorizacao, Perfil.GESTOR);
+        } else if (perfil == Perfil.AGENTE) {
+            throw ApiException.proibido("O cadastro de agente exige autorização de um gestor.");
+        }
+
+        String nome = Validacao.obrigatorio(cadastro.nome(), "Nome", 120);
+        String identificacao = Validacao.obrigatorio(cadastro.identificacaoFuncional(), "Identificação funcional", 40);
+        String email = email(cadastro.email());
+        String senhaHash = hash(cadastro.senha());
+        if (perfil == Perfil.GESTOR) {
+            var dados = new DadosPerfil.Gestor(nome, identificacao, opcional(cadastro.setor(), "Setor", 120));
+            return autorizacao == null ? dao.inserirPrimeiroGestor(email, senhaHash, dados)
+                    : dao.inserir(email, senhaHash, dados);
+        }
+        if (cadastro.equipeId() == null || cadastro.equipeId() <= 0) {
+            throw ApiException.invalido("Informe o ID da equipe do agente.");
+        }
+        return dao.inserir(email, senhaHash, new DadosPerfil.Agente(nome, identificacao, cadastro.equipeId()));
     }
 
     public void prepararOperador(Perfil perfil, String email, String senha, Long equipeId) throws SQLException {
@@ -64,15 +106,20 @@ public class UsuarioBO {
             }
             return;
         }
-        String nome = perfil == Perfil.GESTOR ? "Gestor piloto" : "Agente piloto";
-        salvar(new Usuario(0, perfil, nome, null, emailNormalizado, null, null, equipeId), senha);
+
+        DadosPerfil dados = switch (perfil) {
+            case GESTOR -> new DadosPerfil.Gestor("Gestor piloto", null, null);
+            case AGENTE -> new DadosPerfil.Agente("Agente piloto", null, equipeId);
+            default -> throw ApiException.invalido("Perfil inválido para uma conta piloto.");
+        };
+        dao.inserir(emailNormalizado, hash(senha), dados);
     }
 
-    private Usuario salvar(Usuario usuario, String senha) throws SQLException {
+    private String hash(String senha) {
         if (senha == null || senha.isBlank() || senha.length() < 8 || senha.length() > 128) {
             throw ApiException.invalido("A senha deve ter de 8 a 128 caracteres.");
         }
-        return dao.inserir(usuario, Senhas.gerarHash(senha));
+        return Senhas.gerarHash(senha);
     }
 
     private String email(String valor) {
@@ -83,8 +130,17 @@ public class UsuarioBO {
         return email;
     }
 
-    public record Cadastro(Perfil perfil, String nome, String documento, String email,
-                           String endereco, String responsavel, String senha) {
+    private String opcional(String valor, String campo, int maximo) {
+        return valor == null || valor.isBlank() ? null : Validacao.obrigatorio(valor, campo, maximo);
+    }
+
+    public record Cadastro(Perfil perfil, String nome, String documento, String email, String endereco,
+                           String responsavel, String senha, String ocupacao, String telefone, String nomeFantasia,
+                           String atividadeEconomica, String caracteristicasInstalacoes) {
+    }
+
+    public record CadastroOperador(Perfil perfil, String nome, String email, String senha,
+                                   String identificacaoFuncional, String setor, Long equipeId) {
     }
 
     public record Login(String email, String senha) {

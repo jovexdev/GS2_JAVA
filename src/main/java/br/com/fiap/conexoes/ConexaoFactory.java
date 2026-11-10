@@ -13,8 +13,8 @@ import java.sql.SQLException;
 @Component
 public class ConexaoFactory {
     private static final String URL = "jdbc:oracle:thin:@oracle.fiap.com.br:1521:orcl";
-    private static final String USUARIO = "Seu usuario Oracle";
-    private static final String SENHA = "Sua senha Oracle";
+    private static final String USUARIO = "";
+    private static final String SENHA = "";
     private static final String DRIVER = "oracle.jdbc.driver.OracleDriver";
 
     private final String url;
@@ -38,14 +38,24 @@ public class ConexaoFactory {
                           @Value("${aegis.db.senha}") String senha,
                           @Value("${aegis.db.driver}") String driver) {
         this.url = url.isBlank() ? URL : url;
-        this.usuario = usuario.isBlank() ? USUARIO : usuario;
-        this.senha = senha.isBlank() ? SENHA : senha;
+        String usuarioJava = DRIVER.equals(driver) ? ConfiguracaoLocal.segredoJava("ORACLE_USUARIO") : "";
+        String senhaJava = DRIVER.equals(driver) ? ConfiguracaoLocal.segredoJava("ORACLE_SENHA") : "";
+        this.usuario = valorConfigurado(usuarioJava, usuario, USUARIO);
+        this.senha = valorConfigurado(senhaJava, senha, SENHA);
         this.driver = driver;
     }
 
+    private String valorConfigurado(String codigoLocal, String configuracao, String padrao) {
+        if (!codigoLocal.isBlank()) {
+            return codigoLocal;
+        }
+        return configuracao.isBlank() ? padrao : configuracao;
+    }
+
     public Connection conexao() throws ClassNotFoundException, SQLException {
-        if (USUARIO.equals(usuario) || SENHA.equals(senha)) {
-            throw ApiException.indisponivel("Informe o usuário e a senha Oracle ao iniciar AegisTerminal ou em aegis.local.properties.");
+        if (usuario.isBlank() || senha.isBlank()
+                || "Seu usuario Oracle".equals(usuario) || "Sua senha Oracle".equals(senha)) {
+            throw ApiException.indisponivel("Configure ORACLE_USUARIO e ORACLE_SENHA em CredenciaisLocais.java.");
         }
 
         Class.forName(driver);

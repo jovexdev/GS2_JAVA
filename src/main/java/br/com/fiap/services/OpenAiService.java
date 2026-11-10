@@ -1,6 +1,7 @@
 package br.com.fiap.services;
 
 import br.com.fiap.api.RespostaOpenAi;
+import br.com.fiap.config.ConfiguracaoLocal;
 import br.com.fiap.excecoes.ApiException;
 import com.google.gson.Gson;
 import com.google.gson.JsonParseException;
@@ -29,16 +30,24 @@ public class OpenAiService {
     private final Gson gson = new Gson();
     private final String chave;
     private final String modelo;
+    private final String origemChave;
 
     public OpenAiService(@Value("${aegis.openai.api-key}") String chave,
                          @Value("${aegis.openai.model}") String modelo) {
-        this.chave = chave;
+        String chaveJava = ConfiguracaoLocal.segredoJava("OPENAI_API_KEY");
+        this.chave = chaveJava.isBlank() ? chave : chaveJava;
+        this.origemChave = !chaveJava.isBlank() ? "CredenciaisLocais.java"
+                : chave.isBlank() ? "chave não configurada" : "arquivo de configuração ou variável OPENAI_API_KEY";
         this.modelo = modelo.isBlank() ? MODELO_PADRAO : modelo;
+    }
+
+    public String origemChave() {
+        return origemChave;
     }
 
     public String responder(String instrucoes, String entrada) {
         if (chave.isBlank()) {
-            throw ApiException.indisponivel("Informe a chave OpenAI ao iniciar AegisTerminal ou em aegis.local.properties.");
+            throw ApiException.indisponivel("Configure OPENAI_API_KEY em CredenciaisLocais.java.");
         }
         var requisicao = new HttpPost(URL);
         requisicao.setHeader("Authorization", "Bearer " + chave);

@@ -31,7 +31,7 @@ public class TratadorExcecoes extends ResponseEntityExceptionHandler {
         LOG.error("Falha no banco. Código JDBC: {}. SQLState: {}.", codigo, e.getSQLState());
         if (codigo == 942) {
             return ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE,
-                    "Execute database/01_schema.sql no esquema configurado.");
+                    "Confira o esquema Oracle. Para um banco existente, execute database/02_migrar_perfis.sql.");
         }
         return ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE,
                 "Falha ao acessar o banco de dados. Confira a conexão Oracle.");

@@ -1,5 +1,8 @@
 package br.com.fiap;
 
+import br.com.fiap.bo.UsuarioBO;
+import br.com.fiap.entities.Perfil;
+import br.com.fiap.excecoes.ApiException;
 import org.h2.tools.RunScript;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
@@ -21,6 +24,8 @@ import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -38,6 +43,8 @@ class FluxoVistoriaTest {
             """;
     @Autowired
     private MockMvc mvc;
+    @Autowired
+    private UsuarioBO usuarios;
 
     @DynamicPropertySource
     static void configurarBanco(DynamicPropertyRegistry registry) throws SQLException, IOException {
@@ -112,6 +119,26 @@ class FluxoVistoriaTest {
                 .andExpect(jsonPath("$[3].acao").value("CONCLUIDA"));
         mvc.perform(delete("/api/sessao").session(empresa)).andExpect(status().isNoContent());
         mvc.perform(get("/api/sessao")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void protegeCadastroDeOperadoresEConferePerfilSelecionado() throws SQLException {
+        var agente = new UsuarioBO.CadastroOperador(Perfil.AGENTE, "Agente autorizado",
+                "agente-autorizado@example.test", "senha-teste", "AG-002", null, 1L);
+        assertThatThrownBy(() -> usuarios.cadastrarOperador(agente, null))
+                .isInstanceOf(ApiException.class).hasMessageContaining("autorização de um gestor");
+
+        var gestor = new UsuarioBO.Login("gestor@example.test", "senha-teste");
+        var novoGestor = new UsuarioBO.CadastroOperador(Perfil.GESTOR, "Segundo gestor",
+                "segundo-gestor@example.test", "senha-teste", "GS-002", "Operações", null);
+        assertThatThrownBy(() -> usuarios.cadastrarOperador(novoGestor, null))
+                .isInstanceOf(ApiException.class).hasMessageContaining("Já existe um gestor");
+
+        UsuarioBO.Login loginAgente = new UsuarioBO.Login(agente.email(), agente.senha());
+        assertThat(usuarios.cadastrarOperador(agente, gestor).equipeId()).isEqualTo(1L);
+        assertThat(usuarios.autenticar(loginAgente, Perfil.AGENTE).nome()).isEqualTo("Agente autorizado");
+        assertThatThrownBy(() -> usuarios.autenticar(loginAgente, Perfil.GESTOR))
+                .isInstanceOf(ApiException.class).hasMessageContaining("perfil selecionado");
     }
 
     private MockHttpSession login(String email) throws Exception {

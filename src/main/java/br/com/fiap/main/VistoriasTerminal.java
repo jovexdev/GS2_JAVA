@@ -3,6 +3,7 @@ package br.com.fiap.main;
 import br.com.fiap.bo.VistoriaBO;
 import br.com.fiap.entities.Prioridade;
 import br.com.fiap.entities.Usuario;
+import br.com.fiap.excecoes.ApiException;
 
 import java.sql.SQLException;
 import java.time.LocalDateTime;
@@ -12,12 +13,23 @@ final class VistoriasTerminal {
     }
 
     static void executar(VistoriaBO bo, Usuario usuario) throws SQLException {
-        String acao = Entrada.escolher("Vistorias", "Solicitar", "Listar", "Revisar",
-                "Agendar", "Concluir", "Histórico");
+        String[] opcoes = switch (usuario.perfil()) {
+            case EMPRESA -> new String[]{"Solicitar", "Listar", "Histórico", "Voltar"};
+            case GESTOR -> new String[]{"Listar", "Consultar ocorrência", "Revisar", "Agendar", "Histórico", "Voltar"};
+            case AGENTE -> new String[]{"Listar", "Consultar ocorrência", "Concluir", "Histórico", "Voltar"};
+            case CIDADAO -> throw ApiException.proibido("Use o menu de ocorrências para consultar seus registros.");
+        };
+        String acao = Entrada.escolher("Vistorias", opcoes);
 
         switch (acao) {
             case "Solicitar" -> System.out.println(bo.solicitar(Entrada.id("ID da ocorrência"), usuario));
-            case "Listar" -> bo.listar(usuario).forEach(System.out::println);
+            case "Listar" -> {
+                var lista = bo.listar(usuario);
+                System.out.println("Vistorias encontradas: " + lista.size());
+                lista.forEach(System.out::println);
+            }
+            case "Consultar ocorrência" ->
+                    System.out.println(bo.ocorrencia(Entrada.id("ID da vistoria"), usuario));
             case "Revisar" -> {
                 long id = Entrada.id("ID da vistoria");
                 var prioridade = Prioridade.valueOf(Entrada.escolher("Prioridade", "CRITICA", "INSTAVEL", "OK"));

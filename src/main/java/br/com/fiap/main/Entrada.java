@@ -20,7 +20,6 @@ import java.util.concurrent.CancellationException;
 final class Entrada {
     private static final Console CONSOLE = System.console();
     private static final Scanner LEITOR = CONSOLE == null ? new Scanner(System.in) : null;
-    private static ConexaoFactory conexaoDeTeste;
 
     private Entrada() {
     }
@@ -33,7 +32,7 @@ final class Entrada {
         } catch (SQLException e) {
             System.err.println("Falha Oracle (código " + e.getErrorCode() + "): " + e.getMessage());
             if (e.getErrorCode() == 942) {
-                System.err.println("Execute database/01_schema.sql no esquema do seu usuário Oracle.");
+                System.err.println("Se já existe um esquema AEGIS, execute database/02_migrar_perfis.sql no seu usuário Oracle.");
             }
         } catch (ClassNotFoundException e) {
             System.err.println("Driver Oracle indisponível. Recarregue o projeto Maven no IntelliJ.");
@@ -107,12 +106,7 @@ final class Entrada {
     }
 
     static ConexaoFactory conexoes() {
-        if (conexaoDeTeste == null) {
-            var banco = new CredenciaisTerminal().banco();
-            conexaoDeTeste = new ConexaoFactory(banco.url(), banco.usuario(), banco.senha(),
-                    "oracle.jdbc.driver.OracleDriver");
-        }
-        return conexaoDeTeste;
+        return new ConexaoFactory();
     }
 
     static UsuarioBO usuarios() {
@@ -124,9 +118,11 @@ final class Entrada {
     }
 
     static Usuario login(UsuarioBO usuarios) throws SQLException {
-        String email = texto("E-mail cadastrado no AEGIS");
-        String senha = senha("Senha da sua conta no AEGIS");
-        return usuarios.autenticar(new UsuarioBO.Login(email, senha));
+        return usuarios.autenticar(dadosLogin("E-mail cadastrado no AEGIS", "Senha da sua conta no AEGIS"));
+    }
+
+    static UsuarioBO.Login dadosLogin(String perguntaEmail, String perguntaSenha) {
+        return new UsuarioBO.Login(texto(perguntaEmail), senha(perguntaSenha));
     }
 
     static Usuario login() throws SQLException {

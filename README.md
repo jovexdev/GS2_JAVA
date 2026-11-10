@@ -1,63 +1,70 @@
 # AEGIS
 
-Backend Java da Global Solution 2026.2. O `AegisTerminal` inicia o Spring Boot e abre um menu para operar o sistema pelo console. O menu e as rotas REST usam as mesmas regras e o mesmo banco Oracle da FIAP.
+Backend Java da Global Solution 2026.2. O `AegisTerminal` inicia o Spring Boot e abre o acesso aos perfis do sistema. O menu e as rotas REST compartilham as mesmas regras e o banco Oracle da FIAP.
 
-## Rodar no IntelliJ
+## Atualizar o Oracle
 
-Abra a pasta `GS2_JAVA` como projeto Maven com **JDK 21**. O `pom.xml` já está preparado. Se já clonou o projeto, pare a aplicação anterior e atualize a pasta.
+Pare o AEGIS antes de alterar o esquema. Na pasta `GS2_JAVA`, baixe a versão atualizada.
 
 ```powershell
 git pull --ff-only
+```
+
+- **Banco AEGIS já criado.** Abra [`database/02_migrar_perfis.sql`](database/02_migrar_perfis.sql) no SQL Developer e execute com **F5**, no mesmo usuário Oracle em que rodou o script anterior. A migração copia os dados de perfil, preserva os IDs das contas e mantém as referências de ocorrências, vistorias e histórico. Ela pode ser repetida se a execução for interrompida.
+- **Banco novo.** Execute [`database/01_schema.sql`](database/01_schema.sql) com **F5** no esquema vazio.
+
+| Tabela | O que guarda |
+| --- | --- |
+| `AEGIS_USUARIO` | Identificador, e-mail, hash da senha e perfil da conta |
+| `AEGIS_CIDADAO` | Nome, CPF, endereço, ocupação e telefone |
+| `AEGIS_EMPRESA` | Razão social, CNPJ, nome fantasia, atividade, endereço, responsável, telefone e características das instalações |
+| `AEGIS_GESTOR` | Nome, identificação funcional fictícia e setor |
+| `AEGIS_AGENTE` | Nome, identificação funcional fictícia e equipe |
+
+## Preencher as credenciais uma vez
+
+Copie `CredenciaisLocais.java.example` para `CredenciaisLocais.java` na mesma pasta. O comando abaixo cria o arquivo se ele ainda estiver ausente.
+
+```powershell
+$arquivo = 'src/main/java/br/com/fiap/config/CredenciaisLocais.java'
+if (!(Test-Path $arquivo)) { Copy-Item ($arquivo + '.example') $arquivo }
+```
+
+Abra **`CredenciaisLocais.java`** no IntelliJ e preencha os valores entre aspas.
+
+```java
+public static final String ORACLE_USUARIO = "seu_usuario_oracle";
+public static final String ORACLE_SENHA = "sua_senha_oracle";
+public static final String OPENAI_API_KEY = "sua_chave_openai";
+```
+
+O arquivo Java com valores reais está no `.gitignore`. O AEGIS e os testes reutilizam essas credenciais. As configurações anteriores em `aegis.local.properties` e nas variáveis de ambiente continuam disponíveis. Na abertura do terminal, a linha `OpenAI` indica de onde veio a configuração. A consulta ao InfoDengue usa dados públicos e funciona separadamente da LIA.
+
+A conexão usa `DriverManager.getConnection(url, usuario, senha)` em [`ConexaoFactory`](src/main/java/br/com/fiap/conexoes/ConexaoFactory.java). A URL padrão é `jdbc:oracle:thin:@oracle.fiap.com.br:1521:orcl`.
+
+## Rodar no IntelliJ
+
+Abra `GS2_JAVA` como projeto Maven com **JDK 21** e rode na raiz do projeto.
+
+```powershell
 .\mvnw.cmd clean spring-boot:run
 ```
 
-Você também pode abrir [`AegisTerminal.java`](src/main/java/br/com/fiap/main/AegisTerminal.java) e clicar no triângulo verde ao lado de `main()`. Confira se o **Working directory** é a pasta do `pom.xml`.
+Você também pode executar o `main()` de [`AegisTerminal.java`](src/main/java/br/com/fiap/main/AegisTerminal.java). O Spring Boot escolhe uma porta livre e imprime o endereço da API. Selecione seu perfil e escolha **Entrar** ou **Criar cadastro**.
 
-Na inicialização, informe o **usuário e a senha do Oracle FIAP** quando forem solicitados. A **chave OpenAI** também pode ser digitada nessa etapa. Pressione Enter no campo da chave para continuar sem a LIA. O Spring Boot escolhe uma porta livre e mostra no console o endereço da API REST, que fica disponível enquanto o menu estiver aberto.
-
-Use a opção `1` para testar o Oracle. O resultado esperado inclui `Conectado ao Oracle da FIAP.` e a equipe piloto. Se aparecer que a tabela não existe, execute [`database/01_schema.sql`](database/01_schema.sql) no SQL Developer com F5 usando o mesmo usuário que informou no terminal. Execute o script uma vez por esquema.
-
-## Usar o menu
-
-| Opção | O que faz |
+| Perfil | O que aparece após entrar |
 | --- | --- |
-| `1` | Testa o Oracle e lê a equipe piloto |
-| `2` e `3` | Cadastra cidadão ou empresa fictícia e entra na conta AEGIS |
-| `4` | Registra, lista, busca, atualiza e exclui ocorrências conforme o perfil |
-| `5` | Solicita, acompanha, revisa, agenda ou conclui vistorias conforme o perfil |
-| `6` e `7` | Consulta os indicadores do InfoDengue e a previsão acadêmica |
-| `8` | Envia uma pergunta à LIA usando a OpenAI |
-| `9` | Cria uma conta interna piloto de gestor ou agente |
-| `10` e `0` | Sai da conta ou encerra o AEGIS e o Spring Boot |
+| **Cidadão (CPF)** | Ocorrências próprias, indicadores, previsão e LIA |
+| **Empresa (CNPJ)** | Ocorrências do estabelecimento, classificação preliminar, solicitação e acompanhamento de vistorias, indicadores, previsão e LIA |
+| **Gestor** | Registros ambientais, revisão de prioridade, agendamento e acompanhamento de vistorias |
+| **Agente** | Atendimentos da equipe, consulta ao relato, registro do resultado e conclusão da vistoria |
 
-Para testar a gravação, rode `1`, cadastre uma empresa em `2`, entre com a conta em `3` e registre uma ocorrência em `4`. Guarde o ID exibido para buscar ou editar esse registro. Em `5`, a empresa solicita a vistoria. Use `9` para preparar as contas internas, depois entre como gestor para revisar e agendar e como agente para concluir. O agente piloto é vinculado à equipe `1`.
+Use dados fictícios nos cadastros. O primeiro gestor pode ser criado pelo terminal local. Depois disso, um gestor autoriza os cadastros de novos gestores e agentes. Para cadastrar um agente na equipe piloto, informe o ID `1`. O cadastro público da API atende cidadãos e empresas.
 
-## Reutilizar as credenciais
+## Testar partes separadamente
 
-Para evitar digitar os dados a cada execução, copie `aegis.local.properties.example` para **`aegis.local.properties`** na pasta do `pom.xml`. O arquivo local está no `.gitignore`. Preencha sem aspas.
+As classes ficam no [pacote `main`](src/main/java/br/com/fiap/main). `TesteConexao` verifica o Oracle e a equipe piloto. `TesteCadastrarUsuario` abre a escolha de perfil. Os testes de ocorrências e vistorias pedem o login da conta AEGIS para aplicar as permissões. `TesteLia` usa a chave definida no arquivo Java local.
 
-```properties
-aegis.db.usuario=seu_usuario_oracle
-aegis.db.senha=sua_senha_oracle
-aegis.openai.api-key=sua_chave_openai
-```
+Para rodar apenas a API REST, execute `br.com.fiap.AegisApplication`. No modo terminal, use o endereço impresso para consultar `/api/saude` e `/api/saude/oracle`. Ao iniciar `AegisApplication` diretamente, a porta padrão é 8080.
 
-A terceira linha guarda a chave da LIA. Se a janela **Run** do IntelliJ avisar que a entrada ficará visível, use esse arquivo para evitar digitar segredos no console.
-
-A conexão usa o driver Oracle e `DriverManager.getConnection(url, usuario, senha)` na classe [`ConexaoFactory`](src/main/java/br/com/fiap/conexoes/ConexaoFactory.java). A URL padrão é `jdbc:oracle:thin:@oracle.fiap.com.br:1521:orcl`.
-
-## Testar partes do AEGIS separadamente
-
-As classes estão em [`src/main/java/br/com/fiap/main`](src/main/java/br/com/fiap/main). Execute o `main()` da classe desejada no IntelliJ e siga as perguntas do console.
-
-| Área | Classes |
-| --- | --- |
-| Oracle e conta | `TesteConexao`, `TesteCadastrarUsuario` |
-| Ocorrências | `TesteArrayListOcorrencia`, `TesteInserirOcorrencia`, `TesteSelecionarOcorrencias`, `TesteSelecionarOcorrenciaPorId`, `TesteAtualizarOcorrencia`, `TesteDeletarOcorrencia` |
-| Vistorias, integrações e exceções | `TesteVistoria`, `TesteInfoDengue`, `TesteLia`, `TesteExcecao` |
-
-Os serviços de InfoDengue e OpenAI montam a requisição com Apache HttpClient, leem a entidade com `EntityUtils` e convertem o JSON com Gson para os modelos em `br.com.fiap.api`.
-
-Para testar apenas a API REST, execute `br.com.fiap.AegisApplication`. No modo terminal, use o endereço impresso ao iniciar para consultar `GET /api/saude` e `GET /api/saude/oracle`. Ao executar `AegisApplication` diretamente, a porta padrão é 8080.
-
-Os testes automáticos rodam com `.\mvnw.cmd test` e usam H2 em memória para o fluxo Oracle e amostras de respostas externas.
+Os testes automatizados rodam com `.\mvnw.cmd test`. Eles usam H2 em modo Oracle, exercitam o fluxo de vistorias e verificam a cópia dos perfis legados e as regras de autorização.

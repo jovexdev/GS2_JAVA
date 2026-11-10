@@ -25,6 +25,18 @@ public final class ConfiguracaoLocal {
         return new ConfiguracaoLocal(propriedades);
     }
 
+    public static String segredoJava(String campo) {
+        try {
+            Class<?> fonte = Class.forName("br.com.fiap.config.CredenciaisLocais");
+            String valor = (String) fonte.getField(campo).get(null);
+            return valor == null ? "" : valor;
+        } catch (ClassNotFoundException e) {
+            return "";
+        } catch (ReflectiveOperationException | ClassCastException e) {
+            throw new IllegalStateException("Confira o campo " + campo + " em CredenciaisLocais.java.", e);
+        }
+    }
+
     public String valor(String chave, String variavel) {
         String valor = propriedades.getProperty(chave, "");
         return valor.isBlank() ? System.getenv().getOrDefault(variavel, "") : valor;

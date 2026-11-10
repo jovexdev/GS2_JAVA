@@ -6,27 +6,23 @@ import br.com.fiap.bo.LiaBO;
 import br.com.fiap.bo.OcorrenciaBO;
 import br.com.fiap.bo.UsuarioBO;
 import br.com.fiap.bo.VistoriaBO;
-import br.com.fiap.conexoes.ConexaoFactory;
 import br.com.fiap.entities.Perfil;
 import br.com.fiap.entities.Usuario;
-import br.com.fiap.excecoes.ApiException;
+import br.com.fiap.services.OpenAiService;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.context.ConfigurableApplicationContext;
-import org.springframework.core.env.MapPropertySource;
 
 import java.sql.SQLException;
 
 public class AegisTerminal {
-    private final ConexaoFactory conexoes;
     private final UsuarioBO usuarios;
     private final OcorrenciaBO ocorrencias;
     private final VistoriaBO vistorias;
     private final EpidemiologiaBO epidemiologia;
     private final LiaBO lia;
-    private Usuario usuarioLogado;
+    private boolean encerrado;
 
     private AegisTerminal(ConfigurableApplicationContext contexto) {
-        conexoes = contexto.getBean(ConexaoFactory.class);
         usuarios = contexto.getBean(UsuarioBO.class);
         ocorrencias = contexto.getBean(OcorrenciaBO.class);
         vistorias = contexto.getBean(VistoriaBO.class);
@@ -35,79 +31,74 @@ public class AegisTerminal {
     }
 
     public static void main(String[] args) {
-        Entrada.executar(() -> {
-            System.out.println("=== AEGIS | Terminal ===");
-            var propriedades = new CredenciaisTerminal().propriedades();
-            try (var contexto = new SpringApplicationBuilder(AegisApplication.class)
-                    .properties("server.port=0")
-                    .initializers(c -> c.getEnvironment().getPropertySources()
-                            .addFirst(new MapPropertySource("credenciaisDoTerminal", propriedades)))
-                    .run(args)) {
-                String porta = contexto.getEnvironment().getRequiredProperty("local.server.port");
-                System.out.println("Spring Boot iniciado. API REST em http://127.0.0.1:" + porta);
-                new AegisTerminal(contexto).menu();
+        System.out.println("=== AEGIS | Terminal ===");
+        try (var contexto = new SpringApplicationBuilder(AegisApplication.class)
+                .properties("server.port=0")
+                .run(args)) {
+            String porta = contexto.getEnvironment().getRequiredProperty("local.server.port");
+            System.out.println("Spring Boot iniciado. API REST em http://127.0.0.1:" + porta);
+            System.out.println("OpenAI: " + contexto.getBean(OpenAiService.class).origemChave());
+            var terminal = new AegisTerminal(contexto);
+            while (!terminal.encerrado && Entrada.executar(terminal::acessar)) {
+                // Volta à escolha de perfil quando o usuário sai da conta.
             }
-        });
+        }
     }
 
-    private void menu() {
-        while (true) {
-            System.out.println("""
+    private void acessar() throws SQLException {
+        Perfil perfil = CadastroTerminal.escolherPerfil();
+        if (perfil == null) {
+            encerrado = true;
+            return;
+        }
 
-                    === AEGIS | Menu principal ===
-                    1 - Testar conexão Oracle
-                    2 - Cadastrar cidadão ou empresa
-                    3 - Entrar na conta AEGIS
-                    4 - Ocorrências ambientais
-                    5 - Vistorias
-                    6 - GeoRadar e Observatório (indicadores do InfoDengue)
-                    7 - Previsão epidemiológica
-                    8 - Conversar com a LIA
-                    9 - Preparar gestor ou agente piloto
-                    10 - Sair da conta
-                    0 - Encerrar o AEGIS
-                    """);
-            if (usuarioLogado != null) {
-                System.out.println("Conta ativa: " + usuarioLogado.nome() + " (" + usuarioLogado.perfil() + ")");
+        String acao = Entrada.escolher("Acesso ao AEGIS", "Entrar", "Criar cadastro", "Voltar");
+        if ("Voltar".equals(acao)) {
+            return;
+        }
+
+        Usuario usuario = "Criar cadastro".equals(acao) ? CadastroTerminal.cadastrar(usuarios, perfil)
+                : usuarios.autenticar(Entrada.dadosLogin("E-mail cadastrado no AEGIS", "Senha da sua conta no AEGIS"), perfil);
+        menu(usuario);
+    }
+
+    private void menu(Usuario usuario) {
+        String[] opcoes = switch (usuario.perfil()) {
+            case CIDADAO -> new String[]{"Minhas ocorrências", "Indicadores do InfoDengue", "Previsão epidemiológica",
+                    "Conversar com a LIA", "Sair da conta", "Encerrar"};
+            case EMPRESA -> new String[]{"Minhas ocorrências", "Minhas vistorias", "Indicadores do InfoDengue",
+                    "Previsão epidemiológica", "Conversar com a LIA", "Sair da conta", "Encerrar"};
+            case GESTOR -> new String[]{"Registros ambientais", "Centro de Operações", "Sair da conta", "Encerrar"};
+            case AGENTE -> new String[]{"Atendimentos da equipe", "Sair da conta", "Encerrar"};
+        };
+        while (true) {
+            String acao = Entrada.escolher("\n=== AEGIS | " + usuario.nome() + " (" + usuario.perfil() + ") ===", opcoes);
+            if ("Sair da conta".equals(acao)) {
+                return;
             }
-            String opcao = Entrada.texto("Opção");
-            if ("0".equals(opcao) || !Entrada.executar(() -> executar(opcao))) {
+            if ("Encerrar".equals(acao) || !Entrada.executar(() -> executar(acao, usuario))) {
+                encerrado = true;
                 return;
             }
         }
     }
 
-    private void executar(String opcao) throws SQLException, ClassNotFoundException {
-        switch (opcao) {
-            case "1" -> BancoTerminal.verificar(conexoes);
-            case "2" -> CadastroTerminal.cadastrar(usuarios);
-            case "3" -> {
-                usuarioLogado = Entrada.login(usuarios);
-                System.out.println("Login realizado.");
-            }
-            case "4" -> menuOcorrencias(exigirLogin());
-            case "5" -> VistoriasTerminal.executar(vistorias, exigirLogin());
-            case "6" -> mostrarIndicadores();
-            case "7" -> mostrarPrevisao();
-            case "8" -> conversarComLia();
-            case "9" -> prepararOperador();
-            case "10" -> {
-                usuarioLogado = null;
-                System.out.println("Conta encerrada no terminal.");
-            }
-            default -> System.out.println("Escolha uma opção do menu.");
+    private void executar(String acao, Usuario usuario) throws SQLException {
+        switch (acao) {
+            case "Minhas ocorrências", "Registros ambientais" -> menuOcorrencias(usuario);
+            case "Minhas vistorias", "Centro de Operações", "Atendimentos da equipe" ->
+                    VistoriasTerminal.executar(vistorias, usuario);
+            case "Indicadores do InfoDengue" -> mostrarIndicadores();
+            case "Previsão epidemiológica" -> mostrarPrevisao();
+            case "Conversar com a LIA" -> conversarComLia();
         }
-    }
-
-    private Usuario exigirLogin() {
-        if (usuarioLogado == null) {
-            throw ApiException.naoAutenticado("Use a opção 3 para entrar na sua conta AEGIS.");
-        }
-        return usuarioLogado;
     }
 
     private void menuOcorrencias(Usuario usuario) throws SQLException {
-        String acao = Entrada.escolher("Ocorrências ambientais", "Registrar", "Listar", "Buscar por ID", "Atualizar", "Excluir");
+        String[] opcoes = usuario.perfil() == Perfil.GESTOR
+                ? new String[]{"Listar", "Buscar por ID", "Voltar"}
+                : new String[]{"Registrar", "Listar", "Buscar por ID", "Atualizar", "Excluir", "Voltar"};
+        String acao = Entrada.escolher("Ocorrências ambientais", opcoes);
         switch (acao) {
             case "Registrar" -> {
                 var criada = ocorrencias.registrar(Entrada.relato(usuario.perfil()), usuario);
@@ -156,19 +147,10 @@ public class AegisTerminal {
     }
 
     private void conversarComLia() {
-        exigirLogin();
         String pergunta = Entrada.texto("Pergunta para a LIA (sem dados pessoais)");
         Periodo periodo = Entrada.confirmar("Incluir dados de um município na pergunta?")
                 ? lerPeriodo() : new Periodo(null, null);
         System.out.println(lia.conversar(new LiaBO.Pergunta(pergunta, periodo.municipio(), periodo.ano())).resposta());
-    }
-
-    private void prepararOperador() throws SQLException {
-        Perfil perfil = Perfil.valueOf(Entrada.escolher("Conta interna piloto", "GESTOR", "AGENTE"));
-        String email = Entrada.texto("E-mail da conta interna");
-        String senha = Entrada.senha("Senha com pelo menos 8 caracteres");
-        usuarios.prepararOperador(perfil, email, senha, perfil == Perfil.AGENTE ? 1L : null);
-        System.out.println("Conta piloto disponível. Use a opção 3 para entrar.");
     }
 
     private Periodo lerPeriodo() {

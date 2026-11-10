@@ -7,3 +7,4 @@ target/
 *.local.properties
 *.jar
 *.log
+/src/main/java/br/com/fiap/config/CredenciaisLocais.java
