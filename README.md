@@ -13,7 +13,7 @@ git pull --ff-only
 
 Você também pode abrir [`AegisTerminal.java`](src/main/java/br/com/fiap/main/AegisTerminal.java) e clicar no triângulo verde ao lado de `main()`. Confira se o **Working directory** é a pasta do `pom.xml`.
 
-Na inicialização, informe o **usuário e a senha do Oracle FIAP** quando forem solicitados. A **chave OpenAI** também pode ser digitada nessa etapa. Pressione Enter no campo da chave para continuar sem a LIA. O Spring Boot abre a API REST na porta 8080 enquanto o menu estiver aberto.
+Na inicialização, informe o **usuário e a senha do Oracle FIAP** quando forem solicitados. A **chave OpenAI** também pode ser digitada nessa etapa. Pressione Enter no campo da chave para continuar sem a LIA. O Spring Boot escolhe uma porta livre e mostra no console o endereço da API REST, que fica disponível enquanto o menu estiver aberto.
 
 Use a opção `1` para testar o Oracle. O resultado esperado inclui `Conectado ao Oracle da FIAP.` e a equipe piloto. Se aparecer que a tabela não existe, execute [`database/01_schema.sql`](database/01_schema.sql) no SQL Developer com F5 usando o mesmo usuário que informou no terminal. Execute o script uma vez por esquema.
 
@@ -58,6 +58,6 @@ As classes estão em [`src/main/java/br/com/fiap/main`](src/main/java/br/com/fia
 
 Os serviços de InfoDengue e OpenAI montam a requisição com Apache HttpClient, leem a entidade com `EntityUtils` e convertem o JSON com Gson para os modelos em `br.com.fiap.api`.
 
-Para testar apenas a API REST, execute `br.com.fiap.AegisApplication`. Enquanto o menu ou a aplicação estiverem abertos, consulte `GET /api/saude` e `GET /api/saude/oracle` em `http://127.0.0.1:8080`.
+Para testar apenas a API REST, execute `br.com.fiap.AegisApplication`. No modo terminal, use o endereço impresso ao iniciar para consultar `GET /api/saude` e `GET /api/saude/oracle`. Ao executar `AegisApplication` diretamente, a porta padrão é 8080.
 
 Os testes automáticos rodam com `.\mvnw.cmd test` e usam H2 em memória para o fluxo Oracle e amostras de respostas externas.

@@ -39,10 +39,12 @@ public class AegisTerminal {
             System.out.println("=== AEGIS | Terminal ===");
             var propriedades = new CredenciaisTerminal().propriedades();
             try (var contexto = new SpringApplicationBuilder(AegisApplication.class)
+                    .properties("server.port=0")
                     .initializers(c -> c.getEnvironment().getPropertySources()
                             .addFirst(new MapPropertySource("credenciaisDoTerminal", propriedades)))
                     .run(args)) {
-                System.out.println("Spring Boot iniciado. A API REST está disponível enquanto este menu estiver aberto.");
+                String porta = contexto.getEnvironment().getRequiredProperty("local.server.port");
+                System.out.println("Spring Boot iniciado. API REST em http://127.0.0.1:" + porta);
                 new AegisTerminal(contexto).menu();
             }
         });
