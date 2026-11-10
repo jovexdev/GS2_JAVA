@@ -8,10 +8,20 @@ import br.com.fiap.entities.Vistoria;
 import br.com.fiap.excecoes.ApiException;
 
 import java.sql.SQLException;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.time.format.ResolverStyle;
 import java.util.List;
 
 final class VistoriasTerminal {
+    private static final DateTimeFormatter FORMATO_DATA = DateTimeFormatter.ofPattern("dd/MM/uuuu")
+            .withResolverStyle(ResolverStyle.STRICT);
+    private static final DateTimeFormatter FORMATO_HORA = DateTimeFormatter.ofPattern("HH:mm")
+            .withResolverStyle(ResolverStyle.STRICT);
+
     private VistoriasTerminal() {
     }
 
@@ -73,7 +83,7 @@ final class VistoriasTerminal {
                 if (vistoria.agenteId() == null) {
                     throw ApiException.conflito("Designe o agente antes de agendar.");
                 }
-                var horario = LocalDateTime.parse(Entrada.texto("Data e hora futura (AAAA-MM-DDTHH:MM)"));
+                var horario = lerAgendamento();
                 PainelTerminal.vistoria(bo.agendar(id, new VistoriaBO.Agendamento(vistoria.equipeId(), horario), usuario));
             }
             case "Consultar resultados" -> {
@@ -107,6 +117,23 @@ final class VistoriasTerminal {
                 PainelTerminal.vistoria(bo.encerrar(id, dados, usuario));
             }
         }
+    }
+
+    private static LocalDateTime lerAgendamento() {
+        LocalDate data;
+        try {
+            data = LocalDate.parse(Entrada.texto("Data da vistoria (DD/MM/AAAA)"), FORMATO_DATA);
+        } catch (DateTimeParseException e) {
+            throw ApiException.invalido("Data inválida. Informe uma data existente no formato DD/MM/AAAA.");
+        }
+
+        LocalTime hora;
+        try {
+            hora = LocalTime.parse(Entrada.texto("Hora da vistoria (HH:MM)"), FORMATO_HORA);
+        } catch (DateTimeParseException e) {
+            throw ApiException.invalido("Hora inválida. Use HH:MM, entre 00:00 e 23:59.");
+        }
+        return LocalDateTime.of(data, hora);
     }
 
     static void acompanhar(VistoriaBO bo, Usuario usuario) throws SQLException {
