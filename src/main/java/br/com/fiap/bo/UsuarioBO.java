@@ -46,6 +46,32 @@ public class UsuarioBO {
         return dao.inserir(email(cadastro.email()), hash(cadastro.senha()), dados);
     }
 
+    public DadosPerfil.Empresa estabelecimento(Usuario usuario) throws SQLException {
+        if (usuario.perfil() != Perfil.EMPRESA) {
+            throw ApiException.proibido("O gerenciamento do estabelecimento é exclusivo do perfil empresa.");
+        }
+        return dao.buscarEmpresa(usuario.id())
+                .orElseThrow(() -> ApiException.naoEncontrado("Estabelecimento não encontrado."));
+    }
+
+    public DadosPerfil.Empresa atualizarEstabelecimento(Usuario usuario, Estabelecimento dados) throws SQLException {
+        var atual = estabelecimento(usuario);
+        var empresa = new DadosPerfil.Empresa(
+                Validacao.obrigatorio(dados.razaoSocial(), "Razão social", 120),
+                opcional(dados.nomeFantasia(), "Nome fantasia", 120), atual.cnpj(),
+                opcional(dados.atividadeEconomica(), "Atividade econômica", 150),
+                Validacao.obrigatorio(dados.endereco(), "Endereço", 250),
+                Validacao.obrigatorio(dados.responsavel(), "Responsável", 120),
+                opcional(dados.telefone(), "Telefone", 30),
+                opcional(dados.caracteristicasInstalacoes(), "Características das instalações", 500));
+        return dao.atualizarEmpresa(usuario.id(), empresa);
+    }
+
+    public record Estabelecimento(String razaoSocial, String nomeFantasia, String atividadeEconomica,
+                                  String endereco, String responsavel, String telefone,
+                                  String caracteristicasInstalacoes) {
+    }
+
     public Usuario autenticar(Login login) throws SQLException {
         String email = email(login.email());
         String senha = login.senha();

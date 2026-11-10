@@ -44,6 +44,8 @@ final class Entrada {
             System.err.println("Falha Oracle (código " + e.getErrorCode() + "): " + e.getMessage());
             if (e.getErrorCode() == 942) {
                 System.err.println("Confira se executou database/01_schema.sql no mesmo usuário Oracle.");
+            } else if (e.getErrorCode() == 904) {
+                System.err.println("Confira a atualização da tabela AEGIS_VISTORIA indicada no README.");
             }
         } catch (ClassNotFoundException e) {
             System.err.println("Driver Oracle indisponível. Recarregue o projeto Maven no IntelliJ.");
@@ -105,9 +107,9 @@ final class Entrada {
     }
 
     static String escolher(String pergunta, String... opcoes) {
-        System.out.println(pergunta);
+        PainelTerminal.titulo(pergunta);
         for (int i = 0; i < opcoes.length; i++) {
-            System.out.println((i + 1) + " - " + opcoes[i]);
+            System.out.printf("  %2d  %s%n", i + 1, opcoes[i]);
         }
         long opcao = id("Opção");
         if (opcao > opcoes.length) {

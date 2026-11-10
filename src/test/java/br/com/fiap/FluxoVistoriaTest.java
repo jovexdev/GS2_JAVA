@@ -141,6 +141,97 @@ class FluxoVistoriaTest {
                 .isInstanceOf(ApiException.class).hasMessageContaining("perfil selecionado");
     }
 
+    @Test
+    void acompanhaRelatoCidadaoEConcluiVistoriaSomenteComAgenteDesignado() throws Exception {
+        mvc.perform(post("/api/usuarios").contentType(MediaType.APPLICATION_JSON).content("""
+                {"perfil":"CIDADAO","nome":"Cidadã do bairro","documento":"98765432101",
+                 "email":"bairro@example.test","endereco":"Rua do Bairro","senha":"senha-teste"}
+                """)).andExpect(status().isCreated());
+        mvc.perform(post("/api/usuarios").contentType(MediaType.APPLICATION_JSON).content("""
+                {"perfil":"EMPRESA","nome":"Estabelecimento de teste","documento":"11222333000262",
+                 "email":"loja@example.test","endereco":"Rua Inicial","responsavel":"Pessoa Teste","senha":"senha-teste"}
+                """)).andExpect(status().isCreated());
+
+        MockHttpSession cidada = login("bairro@example.test");
+        MockHttpSession empresa = login("loja@example.test");
+        MockHttpSession gestor = login("gestor@example.test");
+        MockHttpSession agente = login("agente@example.test");
+        var gestorLogin = new UsuarioBO.Login("gestor@example.test", "senha-teste");
+        var designado = usuarios.cadastrarOperador(new UsuarioBO.CadastroOperador(Perfil.AGENTE, "Agente designado",
+                "designado@example.test", "senha-teste", "AG-DES", null, 1L), gestorLogin);
+        MockHttpSession agenteDesignado = login("designado@example.test");
+
+        mvc.perform(get("/api/empresa/estabelecimento").session(cidada)).andExpect(status().isForbidden());
+        mvc.perform(put("/api/empresa/estabelecimento").session(empresa).contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"razaoSocial":"Estabelecimento atualizado","nomeFantasia":"Loja Teste","endereco":"Rua Atualizada",
+                         "atividadeEconomica":"Comércio","responsavel":"Pessoa Teste","telefone":"0000-0000",
+                         "caracteristicasInstalacoes":"Pátio e depósito"}
+                        """)).andExpect(status().isOk()).andExpect(jsonPath("$.cnpj").value("11222333000262"));
+
+        String relatoCidada = mvc.perform(post("/api/ocorrencias").session(cidada).contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"descricao":"Água acumulada em praça","localizacao":"Praça fictícia"}
+                        """)).andExpect(status().isCreated()).andReturn().getResponse().getHeader("Location");
+        String decisao = """
+                {"realizarVistoria":false,"justificativa":"Encaminhamento preventivo sem vistoria."}
+                """;
+        mvc.perform(post(relatoCidada + "/analise").session(cidada).contentType(MediaType.APPLICATION_JSON).content(decisao))
+                .andExpect(status().isForbidden());
+        String encerrada = mvc.perform(post(relatoCidada + "/analise").session(gestor)
+                .contentType(MediaType.APPLICATION_JSON).content(decisao))
+                .andExpect(status().isCreated()).andReturn().getResponse().getHeader("Location");
+        mvc.perform(get(encerrada).session(cidada)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("ENCERRADA"));
+        mvc.perform(get(encerrada + "/historico").session(cidada)).andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].detalhe").value("Encaminhamento preventivo sem vistoria."));
+
+        String relatoEmpresa = criarOcorrencia(empresa);
+        String vistoria = mvc.perform(post(relatoEmpresa + "/vistoria").session(empresa))
+                .andExpect(status().isCreated()).andReturn().getResponse().getHeader("Location");
+        mvc.perform(put(vistoria + "/prioridade").session(gestor).contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"prioridade":"INSTAVEL","justificativa":"Confirmar as condições em campo."}
+                        """)).andExpect(status().isOk());
+        mvc.perform(put(vistoria + "/designacao").session(gestor).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"agenteId\":" + designado.id() + "}")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.agenteNome").value("Agente designado"));
+
+        String horario = LocalDateTime.now(ZoneId.of("America/Sao_Paulo")).plusDays(2)
+                .withSecond(0).withNano(0).toString();
+        mvc.perform(put(vistoria + "/agendamento").session(gestor).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"equipeId\":1,\"agendadaPara\":\"" + horario + "\"}"))
+                .andExpect(status().isOk());
+        mvc.perform(get(vistoria).session(agente)).andExpect(status().isNotFound());
+        mvc.perform(get(vistoria + "/local").session(agenteDesignado)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.endereco").value("Rua Atualizada"));
+
+        mvc.perform(put(vistoria + "/inicio").session(agenteDesignado)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("EM_ANDAMENTO"));
+        mvc.perform(put(vistoria + "/conclusao").session(agenteDesignado).contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isConflict());
+        mvc.perform(put(vistoria + "/inspecao").session(agenteDesignado).contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"texto":"Recipiente com água encontrado."}
+                        """)).andExpect(status().isOk());
+        mvc.perform(put(vistoria + "/recomendacoes").session(agenteDesignado).contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"texto":"Esvaziar os recipientes e cobrir o reservatório."}
+                        """)).andExpect(status().isOk());
+        mvc.perform(get(vistoria).session(empresa)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.inspecao").doesNotExist());
+        mvc.perform(get(vistoria + "/historico").session(empresa)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(5));
+        mvc.perform(put(vistoria + "/conclusao").session(agenteDesignado).contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("CONCLUIDA"));
+        mvc.perform(get(vistoria).session(empresa)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.recomendacoes").value("Esvaziar os recipientes e cobrir o reservatório."));
+        mvc.perform(put(vistoria + "/encerramento").session(gestor).contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"texto":"Resultado de campo revisado."}
+                        """)).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("ENCERRADA"));
+    }
+
     private MockHttpSession login(String email) throws Exception {
         return (MockHttpSession) mvc.perform(post("/api/sessao").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"email\":\"" + email + "\",\"senha\":\"senha-teste\"}"))

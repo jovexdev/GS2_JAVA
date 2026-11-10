@@ -59,6 +59,45 @@ public class UsuarioDAO {
         }
     }
 
+    public Optional<DadosPerfil.Empresa> buscarEmpresa(long usuarioId) throws SQLException {
+        String sql = """
+                SELECT razao_social, nome_fantasia, cnpj, atividade_economica, endereco, responsavel, telefone,
+                       caracteristicas_instalacoes
+                FROM AEGIS_EMPRESA WHERE usuario_id = ?
+                """;
+        try (var conexao = conexoes.abrir(); var stmt = conexao.prepareStatement(sql)) {
+            stmt.setLong(1, usuarioId);
+            try (var rs = stmt.executeQuery()) {
+                return rs.next() ? Optional.of(new DadosPerfil.Empresa(rs.getString(1), rs.getString(2),
+                        rs.getString(3), rs.getString(4), rs.getString(5), rs.getString(6), rs.getString(7),
+                        rs.getString(8))) : Optional.empty();
+            }
+        }
+    }
+
+    public DadosPerfil.Empresa atualizarEmpresa(long usuarioId, DadosPerfil.Empresa empresa) throws SQLException {
+        String sql = """
+                UPDATE AEGIS_EMPRESA
+                SET razao_social = ?, nome_fantasia = ?, atividade_economica = ?, endereco = ?, responsavel = ?,
+                    telefone = ?, caracteristicas_instalacoes = ?
+                WHERE usuario_id = ?
+                """;
+        try (var conexao = conexoes.abrir(); var stmt = conexao.prepareStatement(sql)) {
+            stmt.setString(1, empresa.razaoSocial());
+            stmt.setString(2, empresa.nomeFantasia());
+            stmt.setString(3, empresa.atividadeEconomica());
+            stmt.setString(4, empresa.endereco());
+            stmt.setString(5, empresa.responsavel());
+            stmt.setString(6, empresa.telefone());
+            stmt.setString(7, empresa.caracteristicasInstalacoes());
+            stmt.setLong(8, usuarioId);
+            if (stmt.executeUpdate() != 1) {
+                throw ApiException.naoEncontrado("Estabelecimento não encontrado.");
+            }
+            return empresa;
+        }
+    }
+
     public boolean temGestor() throws SQLException {
         try (var conexao = conexoes.abrir()) {
             return temGestor(conexao);

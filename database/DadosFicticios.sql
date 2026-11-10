@@ -104,15 +104,18 @@ BEGIN
     VALUES (v_ocorrencia_pendente, 'PENDENTE')
     RETURNING id INTO v_vistoria_pendente;
 
-    INSERT INTO AEGIS_VISTORIA (ocorrencia_id, equipe_id, status, prioridade, agendada_para, versao)
-    VALUES (v_ocorrencia_agendada, 9101, 'AGENDADA', 'INSTAVEL',
-            v_hoje + INTERVAL '2' DAY + INTERVAL '10' HOUR, 2)
+    INSERT INTO AEGIS_VISTORIA (ocorrencia_id, equipe_id, agente_id, status, prioridade, agendada_para, versao)
+    VALUES (v_ocorrencia_agendada, 9101, v_agente_norte, 'AGENDADA', 'INSTAVEL',
+            v_hoje + INTERVAL '2' DAY + INTERVAL '10' HOUR, 3)
     RETURNING id INTO v_vistoria_agendada;
 
     INSERT INTO AEGIS_VISTORIA
-        (ocorrencia_id, equipe_id, status, prioridade, agendada_para, resultado, versao)
-    VALUES (v_ocorrencia_concluida, 9102, 'CONCLUIDA', 'OK', v_hoje - INTERVAL '5' DAY + INTERVAL '9' HOUR,
-            'Vistoria simulada concluída. Depósito organizado e orientações preventivas registradas.', 3)
+        (ocorrencia_id, equipe_id, agente_id, status, prioridade, agendada_para, resultado,
+         inspecao, recomendacoes, versao)
+    VALUES (v_ocorrencia_concluida, 9102, v_agente_sul, 'CONCLUIDA', 'OK',
+            v_hoje - INTERVAL '5' DAY + INTERVAL '9' HOUR, 'Vistoria simulada concluída.',
+            'Depósito organizado e sem acúmulo de água no momento da vistoria.',
+            'Manter os reservatórios tampados e revisar o pátio após chuvas.', 7)
     RETURNING id INTO v_vistoria_concluida;
 
     -- Histórico da vistoria pendente
@@ -130,7 +133,11 @@ BEGIN
             v_hoje - INTERVAL '3' DAY + INTERVAL '9' HOUR);
 
     INSERT INTO AEGIS_HISTORICO (vistoria_id, autor_id, acao, detalhe, registrado_em)
-    VALUES (v_vistoria_agendada, v_gestor, 'AGENDADA', 'Equipe Demo Norte designada para o atendimento.',
+    VALUES (v_vistoria_agendada, v_gestor, 'DESIGNADA', 'Agente designado na equipe Demo Norte.',
+            v_hoje - INTERVAL '3' DAY + INTERVAL '9' HOUR + INTERVAL '30' MINUTE);
+
+    INSERT INTO AEGIS_HISTORICO (vistoria_id, autor_id, acao, detalhe, registrado_em)
+    VALUES (v_vistoria_agendada, v_gestor, 'AGENDADA', 'Atendimento agendado para a equipe Demo Norte.',
             v_hoje - INTERVAL '3' DAY + INTERVAL '10' HOUR);
 
     -- Histórico da vistoria concluída
@@ -143,12 +150,29 @@ BEGIN
             v_hoje - INTERVAL '8' DAY + INTERVAL '10' HOUR);
 
     INSERT INTO AEGIS_HISTORICO (vistoria_id, autor_id, acao, detalhe, registrado_em)
-    VALUES (v_vistoria_concluida, v_gestor, 'AGENDADA', 'Equipe Demo Sul designada para o atendimento.',
+    VALUES (v_vistoria_concluida, v_gestor, 'DESIGNADA', 'Agente designado na equipe Demo Sul.',
+            v_hoje - INTERVAL '8' DAY + INTERVAL '10' HOUR + INTERVAL '30' MINUTE);
+
+    INSERT INTO AEGIS_HISTORICO (vistoria_id, autor_id, acao, detalhe, registrado_em)
+    VALUES (v_vistoria_concluida, v_gestor, 'AGENDADA', 'Atendimento agendado para a equipe Demo Sul.',
             v_hoje - INTERVAL '8' DAY + INTERVAL '11' HOUR);
 
     INSERT INTO AEGIS_HISTORICO (vistoria_id, autor_id, acao, detalhe, registrado_em)
-    VALUES (v_vistoria_concluida, v_agente_sul, 'CONCLUIDA',
-            'Vistoria simulada concluída. Depósito organizado e orientações preventivas registradas.',
+    VALUES (v_vistoria_concluida, v_agente_sul, 'INICIADA', 'Atendimento de campo iniciado.',
+            v_hoje - INTERVAL '5' DAY + INTERVAL '9' HOUR);
+
+    INSERT INTO AEGIS_HISTORICO (vistoria_id, autor_id, acao, detalhe, registrado_em)
+    VALUES (v_vistoria_concluida, v_agente_sul, 'INSPECAO',
+            'Depósito organizado e sem acúmulo de água no momento da vistoria.',
+            v_hoje - INTERVAL '5' DAY + INTERVAL '9' HOUR + INTERVAL '20' MINUTE);
+
+    INSERT INTO AEGIS_HISTORICO (vistoria_id, autor_id, acao, detalhe, registrado_em)
+    VALUES (v_vistoria_concluida, v_agente_sul, 'RECOMENDACOES',
+            'Manter os reservatórios tampados e revisar o pátio após chuvas.',
+            v_hoje - INTERVAL '5' DAY + INTERVAL '9' HOUR + INTERVAL '30' MINUTE);
+
+    INSERT INTO AEGIS_HISTORICO (vistoria_id, autor_id, acao, detalhe, registrado_em)
+    VALUES (v_vistoria_concluida, v_agente_sul, 'CONCLUIDA', 'Vistoria simulada concluída.',
             v_hoje - INTERVAL '5' DAY + INTERVAL '10' HOUR);
     -- Fim da carga
 

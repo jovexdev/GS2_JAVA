@@ -10,9 +10,9 @@ Pare o AEGIS antes de alterar o esquema. Na pasta `GS2_JAVA`, baixe a versão at
 git pull --ff-only
 ```
 
-Abra [`database/01_schema.sql`](database/01_schema.sql) no SQL Developer e execute com **F5** no seu usuário Oracle. Esse é o script de instalação. Ele cria as tabelas, as chaves e a equipe piloto.
+Para uma base nova, abra [`database/01_schema.sql`](database/01_schema.sql) no SQL Developer e execute com **F5** no seu usuário Oracle. Ele cria as tabelas, as chaves e a equipe piloto.
 
-Para substituir um esquema AEGIS antigo, exclua primeiro as tabelas AEGIS desse usuário. A exclusão remove os cadastros, as ocorrências, as vistorias e o histórico existentes.
+Se as tabelas já existem, execute somente o bloco da seção **Atualizar a tabela de vistorias existente**. Ele preserva os dados e habilita a designação individual e as etapas de campo.
 
 | Tabela | O que guarda |
 | --- | --- |
@@ -21,6 +21,30 @@ Para substituir um esquema AEGIS antigo, exclua primeiro as tabelas AEGIS desse 
 | `AEGIS_EMPRESA` | Razão social, CNPJ, nome fantasia, atividade, endereço, responsável, telefone e características das instalações |
 | `AEGIS_GESTOR` | Nome, identificação funcional fictícia e setor |
 | `AEGIS_AGENTE` | Nome, identificação funcional fictícia e equipe |
+
+## Atualizar a tabela de vistorias existente
+
+Com o AEGIS parado, execute este bloco com **F5** no SQL Developer, no mesmo usuário Oracle das tabelas AEGIS. Use-o uma vez se a sua tabela de vistorias foi criada pela versão anterior. Para uma base nova, o `01_schema.sql` já inclui esses campos.
+
+```sql
+ALTER TABLE AEGIS_VISTORIA ADD (
+    agente_id NUMBER(19),
+    inspecao VARCHAR2(1000 CHAR),
+    recomendacoes VARCHAR2(1000 CHAR)
+);
+
+ALTER TABLE AEGIS_VISTORIA ADD CONSTRAINT AEGIS_VISTORIA_AGENTE_FK
+    FOREIGN KEY (agente_id) REFERENCES AEGIS_AGENTE(usuario_id);
+
+ALTER TABLE AEGIS_VISTORIA MODIFY (status VARCHAR2(14 CHAR));
+
+ALTER TABLE AEGIS_VISTORIA DROP CONSTRAINT AEGIS_VISTORIA_STATUS_CK;
+
+ALTER TABLE AEGIS_VISTORIA ADD CONSTRAINT AEGIS_VISTORIA_STATUS_CK
+    CHECK (status IN ('PENDENTE', 'AGENDADA', 'EM_ANDAMENTO', 'CONCLUIDA', 'ENCERRADA'));
+```
+
+As vistorias anteriores mantêm o vínculo com a equipe. Quando um agente da equipe inicia um atendimento antigo sem agente individual, a vistoria passa a ser vinculada a ele.
 
 ## Carregar dados fictícios
 
@@ -69,10 +93,12 @@ Você também pode executar o `main()` de [`AegisTerminal.java`](src/main/java/b
 
 | Perfil | O que aparece após entrar |
 | --- | --- |
-| **Cidadão (CPF)** | Ocorrências próprias, indicadores, previsão e LIA |
-| **Empresa (CNPJ)** | Ocorrências do estabelecimento, classificação preliminar, solicitação e acompanhamento de vistorias, indicadores, previsão e LIA |
-| **Gestor** | Registros ambientais, revisão de prioridade, agendamento e acompanhamento de vistorias |
-| **Agente** | Atendimentos da equipe, consulta ao relato, registro do resultado e conclusão da vistoria |
+| **Cidadão (CPF)** | GeoRadar com resumo municipal e link para o mapa do InfoDengue, gráfico de casos em barras, previsão, LIA, registro e acompanhamento de ocorrências |
+| **Empresa (CNPJ)** | Edição dos dados do estabelecimento, relato e classificação com justificativa, solicitação de vistoria, acompanhamento e histórico |
+| **Gestor** | Análise dos relatos de cidadãos e empresas, decisão sobre vistoria, revisão de prioridade, designação de agente, agendamento, acompanhamento, resultados e encerramento |
+| **Agente** | Vistorias atribuídas, local e relato, início, inspeção, recomendações, conclusão de campo e histórico |
+
+O gestor pode encaminhar um relato para vistoria ou encerrá-lo com justificativa. Após revisar a prioridade, designe o agente e agende o atendimento. O agente registra a inspeção e as orientações durante o atendimento. O solicitante vê a inspeção e as recomendações após a conclusão de campo.
 
 Use dados fictícios nos cadastros. O primeiro gestor pode ser criado pelo terminal local. Depois disso, um gestor autoriza os cadastros de novos gestores e agentes. Para cadastrar um agente na equipe piloto, informe o ID `1`. O cadastro público da API atende cidadãos e empresas.
 

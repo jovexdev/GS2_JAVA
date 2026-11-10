@@ -15,6 +15,13 @@ final class Sessao {
         request.getSession(true).setAttribute(USUARIO, usuario);
     }
 
+    static void atualizar(HttpServletRequest request, Usuario usuario) {
+        var sessao = request.getSession(false);
+        if (sessao != null) {
+            sessao.setAttribute(USUARIO, usuario);
+        }
+    }
+
     static Usuario exigirUsuario(HttpServletRequest request) {
         var sessao = request.getSession(false);
         if (sessao != null && sessao.getAttribute(USUARIO) instanceof Usuario usuario) {
