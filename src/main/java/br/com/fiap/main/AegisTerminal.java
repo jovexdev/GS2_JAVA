@@ -31,18 +31,20 @@ public class AegisTerminal {
     }
 
     public static void main(String[] args) {
-        System.out.println("=== AEGIS | Terminal ===");
-        try (var contexto = new SpringApplicationBuilder(AegisApplication.class)
-                .properties("server.port=0")
-                .run(args)) {
-            String porta = contexto.getEnvironment().getRequiredProperty("local.server.port");
-            System.out.println("Spring Boot iniciado. API REST em http://127.0.0.1:" + porta);
-            System.out.println("OpenAI: " + contexto.getBean(OpenAiService.class).origemChave());
-            var terminal = new AegisTerminal(contexto);
-            while (!terminal.encerrado && Entrada.executar(terminal::acessar)) {
-                // Volta à escolha de perfil quando o usuário sai da conta.
+        Entrada.executar(() -> {
+            System.out.println("=== AEGIS | Terminal ===");
+            try (var contexto = new SpringApplicationBuilder(AegisApplication.class)
+                    .properties("server.port=0")
+                    .run(args)) {
+                String porta = contexto.getEnvironment().getRequiredProperty("local.server.port");
+                System.out.println("Spring Boot iniciado. API REST em http://127.0.0.1:" + porta);
+                System.out.println("OpenAI: " + contexto.getBean(OpenAiService.class).origemChave());
+                var terminal = new AegisTerminal(contexto);
+                while (!terminal.encerrado && Entrada.executar(terminal::acessar)) {
+                    // Volta à escolha de perfil quando o usuário sai da conta.
+                }
             }
-        }
+        });
     }
 
     private void acessar() throws SQLException {

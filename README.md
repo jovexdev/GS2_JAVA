@@ -10,8 +10,9 @@ Pare o AEGIS antes de alterar o esquema. Na pasta `GS2_JAVA`, baixe a versão at
 git pull --ff-only
 ```
 
-- **Banco AEGIS já criado.** Abra [`database/02_migrar_perfis.sql`](database/02_migrar_perfis.sql) no SQL Developer e execute com **F5**, no mesmo usuário Oracle em que rodou o script anterior. A migração copia os dados de perfil, preserva os IDs das contas e mantém as referências de ocorrências, vistorias e histórico. Ela pode ser repetida se a execução for interrompida.
-- **Banco novo.** Execute [`database/01_schema.sql`](database/01_schema.sql) com **F5** no esquema vazio.
+Abra [`database/01_schema.sql`](database/01_schema.sql) no SQL Developer e execute com **F5** no seu usuário Oracle. Esse é o script de instalação. Ele cria as tabelas, as chaves e a equipe piloto.
+
+Para substituir um esquema AEGIS antigo, exclua primeiro as tabelas AEGIS desse usuário. A exclusão remove os cadastros, as ocorrências, as vistorias e o histórico existentes.
 
 | Tabela | O que guarda |
 | --- | --- |
@@ -65,4 +66,4 @@ As classes ficam no [pacote `main`](src/main/java/br/com/fiap/main). `TesteConex
 
 Para rodar apenas a API REST, execute `br.com.fiap.AegisApplication`. No modo terminal, use o endereço impresso para consultar `/api/saude` e `/api/saude/oracle`. Ao iniciar `AegisApplication` diretamente, a porta padrão é 8080.
 
-Os testes automatizados rodam com `.\mvnw.cmd test`. Eles usam H2 em modo Oracle, exercitam o fluxo de vistorias e verificam a cópia dos perfis legados e as regras de autorização.
+Os testes automatizados rodam com `.\mvnw.cmd test`. Eles usam H2 em modo Oracle, exercitam o fluxo de vistorias e as regras de autorização.

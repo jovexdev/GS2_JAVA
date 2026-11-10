@@ -11,6 +11,8 @@ import br.com.fiap.excecoes.ApiException;
 
 import java.io.Console;
 import java.io.IOException;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.time.DateTimeException;
 import java.util.Arrays;
@@ -19,7 +21,16 @@ import java.util.concurrent.CancellationException;
 
 final class Entrada {
     private static final Console CONSOLE = System.console();
-    private static final Scanner LEITOR = CONSOLE == null ? new Scanner(System.in) : null;
+    private static final Scanner LEITOR = CONSOLE == null
+            ? new Scanner(System.in, StandardCharsets.UTF_8) : null;
+
+    static {
+        // O IntelliJ e outros consoles com entrada redirecionada usam fluxos UTF-8.
+        if (CONSOLE == null) {
+            System.setOut(new PrintStream(System.out, true, StandardCharsets.UTF_8));
+            System.setErr(new PrintStream(System.err, true, StandardCharsets.UTF_8));
+        }
+    }
 
     private Entrada() {
     }
@@ -32,7 +43,7 @@ final class Entrada {
         } catch (SQLException e) {
             System.err.println("Falha Oracle (código " + e.getErrorCode() + "): " + e.getMessage());
             if (e.getErrorCode() == 942) {
-                System.err.println("Se já existe um esquema AEGIS, execute database/02_migrar_perfis.sql no seu usuário Oracle.");
+                System.err.println("Confira se executou database/01_schema.sql no mesmo usuário Oracle.");
             }
         } catch (ClassNotFoundException e) {
             System.err.println("Driver Oracle indisponível. Recarregue o projeto Maven no IntelliJ.");
