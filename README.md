@@ -101,3 +101,32 @@ As classes ficam no [pacote `main`](src/main/java/br/com/fiap/main). `TesteConex
 Para rodar apenas a API REST, execute `br.com.fiap.AegisApplication`. No modo terminal, use o endereço impresso para consultar `/api/saude` e `/api/saude/oracle`. Ao iniciar `AegisApplication` diretamente, a porta padrão é 8080.
 
 Os testes automatizados rodam com `.\mvnw.cmd test`. Eles usam H2 em modo Oracle, exercitam o fluxo de vistorias e as regras de autorização.
+
+
+## Minha saúde: CNES e orientação da LIA
+
+A nova aba **Minha saúde** do frontend é exclusiva do cidadão. Não exige alteração no Oracle: as unidades vêm do CNES e as respostas sobre sintomas não são gravadas no banco.
+
+A integração segue o padrão de chamada HTTP e leitura com Gson usado pelo InfoDengue:
+
+- `api/EstabelecimentoCnes.java` e `api/RespostaCnes.java`: campos recebidos da API.
+- `services/CnesService.java`: GET público, sem chave, paginação, limites de espera e cache de 30 minutos.
+- `bo/UnidadesSaudeBO.java`: conversão interna do código municipal, filtro de pronto atendimento SUS ativo e tratamento de coordenadas ausentes.
+- `bo/OrientacaoCidadaoBO.java`: orientação inicial usando o serviço OpenAI existente, com indicação imediata de urgência para sinais de alarme.
+- `controller/CuidadoCidadaoController.java`: sessão e autorização do perfil cidadão.
+- `main/TesteCnes.java`: consulta independente no IntelliJ, sem Oracle e sem chave GPT. O código IBGE é pedido somente neste teste técnico; no frontend, a busca é pelo nome e UF.
+
+| Método | Rota | Uso |
+| --- | --- | --- |
+| GET | `/api/cidadao/unidades-saude?municipio=3509502` | UPAs e pronto atendimento SUS do município |
+| POST | `/api/cidadao/orientacao` | Questionário de sintomas com consentimento |
+
+O POST recebe `alerta` (`SIM`, `NAO` ou `NAO_SEI`), `sintomas`, `inicio`, `evolucao` e `consentimento`. Sinais de alarme ou dúvida sobre reconhecê-los retornam orientação presencial imediatamente, sem chamar a OpenAI. Para as demais respostas, o usuário autoriza o envio do relato. O GPT organiza os sintomas em trechos do próprio relato; os textos de orientação são controlados pela aplicação. O resultado nunca confirma nem descarta dengue. Se a chave faltar ou o provedor falhar, a interface informa a indisponibilidade e apresenta orientação de referência, sem simular resposta da IA. A resposta HTTP usa `Cache-Control: no-store`.
+
+Para conectar com o frontend na porta padrão, execute **AegisApplication**, mantendo a API em **8080**. No VS Code, execute `npm run dev` e abra **Cidadão → Minha saúde**. As credenciais Oracle continuam em `ConexaoFactory.java` e a chave GPT em `OpenAiService.java`.
+
+O [CNES / Ministério da Saúde](https://www.gov.br/saude/pt-br/acesso-a-informacao/sic/dados-em-transparencia-ativa/seidigi) fornece a [API pública](https://apidadosabertos.saude.gov.br/cnes/estabelecimentos) sem chave ou cobrança. A consulta usa o tipo 73 (pronto atendimento) e exclui registros desabilitados ou sem atendimento ambulatorial SUS. O cadastro pode estar desatualizado e não informa filas, vagas ou funcionamento em tempo real. Unidades sem coordenadas permanecem na lista pelo endereço.
+
+O mapa usa Leaflet/OpenStreetMap. O trajeto abre um [link de navegação do Google Maps](https://developers.google.com/maps/documentation/urls/get-started), sem contratar Maps API nem cadastrar faturamento de mapas. A distância exibida pelo AEGIS é em linha reta, e a navegação externa calcula o trajeto. A localização é opcional, permanece no navegador e só é incluída no link ao abrir uma rota; as respostas de saúde não vão para o mapa. **A LIA continua usando os créditos da chave OpenAI existente**, que são independentes da gratuidade do CNES.
+
+Referência de orientação: [dengue — Ministério da Saúde](https://www.gov.br/saude/pt-br/assuntos/saude-de-a-a-z/d/dengue).
